@@ -271,6 +271,7 @@
   .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: none; align-items: center; justify-content: center; z-index: 50; }
   .overlay.show { display: flex; }
   .browser { width: 520px; max-width: 92vw; max-height: 80vh; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; display: flex; flex-direction: column; overflow: hidden; }
+  .browser.small { width: 420px; }
   .browser-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
   .browser-head .title { font-size: 14px; font-weight: 600; white-space: nowrap; }
   .close { background: none; border: none; color: var(--text-dim); font-size: 18px; cursor: pointer; padding: 0 4px; }
@@ -281,6 +282,42 @@
   .browser-item .icon { width: 20px; text-align: center; flex: none; }
   .browser-empty { color: var(--text-dim); font-size: 13px; padding: 16px; text-align: center; }
   .browser-foot { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-dim); }
+
+  /* ── 蒙版式引导（coach marks） ─────── */
+  .tour-mask {
+    position: fixed; inset: 0; z-index: 100;
+    background: transparent; display: none;
+  }
+  .tour-spot {
+    position: fixed; z-index: 101;
+    border-radius: 8px;
+    border: 1px solid var(--accent);
+    box-shadow: 0 0 0 9999px rgba(6, 8, 12, .82);
+    transition: all .22s ease;
+    pointer-events: none; display: none;
+  }
+  .tour-card {
+    position: fixed; z-index: 102;
+    width: 310px;
+    background: var(--panel);
+    border: 1px solid var(--accent-dim);
+    border-radius: 10px;
+    padding: 12px 16px 14px;
+    box-shadow: 0 14px 36px rgba(0,0,0,.6);
+    display: none;
+    transition: left .28s ease, top .28s ease;
+  }
+  .tour-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .tour-top .step { font-size: 11px; color: var(--accent); letter-spacing: 1px; font-weight: 600; }
+  .tour-top a { font-size: 11px; color: var(--text-dim); text-decoration: none; cursor: pointer; }
+  .tour-top a:hover { color: var(--err); }
+  .tour-card h3 { font-size: 14px; color: #eef2f8; margin: 0 0 6px; }
+  .tour-card p { font-size: 12.5px; color: var(--text-dim); line-height: 1.65; margin: 0; }
+  .tour-nav { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+  .tour-nav button { font-size: 12px; padding: 5px 10px; }
+  .tour-dots { flex: 1; min-width: 0; overflow: hidden; display: flex; gap: 3px; justify-content: center; }
+  .tour-dots .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--border); flex: none; }
+  .tour-dots .dot.active { background: var(--accent); }
 
   ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
@@ -316,8 +353,10 @@
 
   <div class="header-right">
     <div class="msg" id="msg"></div>
+    <button type="button" id="historyBtn" class="ghost" title="最近打开的文档" style="display:none">🕘 历史</button>
     <button type="button" id="undoBtn" class="ghost" title="撤销上次修改" disabled>↩ 撤销</button>
     <button type="button" id="redoBtn" class="ghost" title="还原撤销" disabled>↪ 还原</button>
+    <button type="button" id="tourBtn" class="ghost" title="功能引导">快速上手</button>
   </div>
 </header>
 
@@ -394,6 +433,18 @@
   </div>
 </div>
 
+<!-- 历史记录 -->
+<div class="overlay" id="histOverlay">
+  <div class="browser small">
+    <div class="browser-head">
+      <span class="title">🕘 最近打开</span>
+      <button class="close" id="histClose" title="关闭">✕</button>
+    </div>
+    <div class="browser-body" id="histList"></div>
+    <div class="browser-foot" id="histFoot"></div>
+  </div>
+</div>
+
 <input type="file" id="fileInput" accept=".md,.markdown,.txt" hidden>
 
 <script src="./marked.min.js"></script>
@@ -411,6 +462,8 @@ const hasFSA = "showOpenFilePicker" in window;
 if (!hasFSA) {
   $("banner").querySelector("span").textContent = "⚠️ 当前浏览器不支持 File System Access API（需要 Chrome / Edge）。仅支持：打开文件预览、编辑、另存为下载。";
   $("fileMenu").querySelector('[data-act="folder"]').disabled = true;
+} else {
+  $("historyBtn").style.display = "";
 }
 
 // ── 状态 ──────────────────────────────
@@ -475,6 +528,7 @@ async function loadHandle(handle) {
   currentContent = text;
   fileEncoding = encoding;
   currentName = handle.name;
+  recordHistory(handle);
   undoStack = []; redoStack = [];
   updateUndoRedo();
   renderAll();
@@ -970,7 +1024,7 @@ document.addEventListener("keydown", (e) => {
   }
   if (e.key === "Escape") {
     closeEditPanel();
-    [dirOverlay].forEach((o) => o.classList.remove("show"));
+    [dirOverlay, histOverlay].forEach((o) => o.classList.remove("show"));
     insertMenu.classList.remove("show");
     fileMenu.classList.remove("show");
   }
@@ -979,6 +1033,276 @@ document.addEventListener("keydown", (e) => {
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
+
+// ── 历史记录（IndexedDB 持久化文件句柄，Chrome/Edge） ──
+const HIST_DB = "mdutils-app";
+const HIST_STORE = "history";
+const histOverlay = $("histOverlay");
+
+function idbOpen() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(HIST_DB, 1);
+    req.onupgradeneeded = () => {
+      if (!req.result.objectStoreNames.contains(HIST_STORE)) {
+        req.result.createObjectStore(HIST_STORE, { keyPath: "name" });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function idbGetAll() {
+  const db = await idbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(HIST_STORE, "readonly");
+    const req = tx.objectStore(HIST_STORE).getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function idbPut(entry) {
+  const db = await idbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(HIST_STORE, "readwrite");
+    tx.objectStore(HIST_STORE).put(entry);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function idbDelete(name) {
+  const db = await idbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(HIST_STORE, "readwrite");
+    tx.objectStore(HIST_STORE).delete(name);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function recordHistory(handle) {
+  try {
+    await idbPut({ name: handle.name, handle, time: Date.now() });
+    const all = await idbGetAll();
+    all.sort((a, b) => (b.time || 0) - (a.time || 0));
+    if (all.length > 10) {
+      for (const e of all.slice(10)) await idbDelete(e.name);
+    }
+  } catch (e) { /* 历史失败不影响主流程 */ }
+}
+
+function fmtTime(t) {
+  const d = new Date(t);
+  return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+}
+
+async function renderHistory() {
+  const body = $("histList");
+  body.innerHTML = "";
+  let list = [];
+  try { list = await idbGetAll(); } catch (e) { /* 忽略 */ }
+  list.sort((a, b) => (b.time || 0) - (a.time || 0));
+  const recent = list.slice(0, 5);
+  if (!recent.length) {
+    body.innerHTML = '<div class="browser-empty">还没有打开记录</div>';
+    $("histFoot").textContent = "";
+    return;
+  }
+  recent.forEach((entry) => {
+    const div = document.createElement("div");
+    div.className = "browser-item";
+    div.innerHTML =
+      `<span class="icon">📄</span>` +
+      `<span><b>${escapeHtml(entry.name)}</b><br>` +
+      `<small style="color:var(--text-dim);font-size:11px">${fmtTime(entry.time)} · 点击重新打开</small></span>`;
+    div.addEventListener("click", async () => {
+      try {
+        let perm = await entry.handle.queryPermission({ mode: "readwrite" });
+        if (perm !== "granted") perm = await entry.handle.requestPermission({ mode: "readwrite" });
+        if (perm !== "granted") { alert("未获得文件访问权限"); return; }
+        histOverlay.classList.remove("show");
+        await loadHandle(entry.handle);
+      } catch (err) {
+        alert("该文件已不可用，已从历史移除: " + err.message);
+        try { await idbDelete(entry.name); } catch (e) { /* 忽略 */ }
+      }
+    });
+    body.appendChild(div);
+  });
+  $("histFoot").textContent = `最近 ${recent.length} 个文档`;
+}
+
+$("historyBtn").addEventListener("click", async () => {
+  await renderHistory();
+  histOverlay.classList.add("show");
+});
+$("histClose").addEventListener("click", () => histOverlay.classList.remove("show"));
+histOverlay.addEventListener("click", (e) => { if (e.target === histOverlay) histOverlay.classList.remove("show"); });
+
+// ── 蒙版式引导（coach marks tour，本地版 12 步） ──
+const tourMask = document.createElement("div");
+tourMask.className = "tour-mask";
+const tourSpot = document.createElement("div");
+tourSpot.className = "tour-spot";
+const tourCard = document.createElement("div");
+tourCard.className = "tour-card";
+document.body.append(tourMask, tourSpot, tourCard);
+
+let tourSteps = [];
+let tourIdx = 0;
+let tourActive = false;
+let tourScrollRaf = null;
+
+function getTourEl(step) { return step.el || document.querySelector(step.sel); }
+
+function buildTourSteps() {
+  const steps = [
+    { sel: "#fileBtn", title: "① 文件菜单", text: "打开本地文件 / 打开文件夹 / 新建 / 保存 / 另存为，全在这里。", side: "bottom" },
+    { sel: ".status-box", title: "② 文件信息", text: "当前文件名 + 字符 / 行 / 标题统计，一目了然。", side: "bottom" },
+    { sel: "#undoBtn", title: "③ 撤销", text: "每次修改自动快照，最多回滚 20 步。", side: "bottom" },
+    { sel: "#redoBtn", title: "④ 还原", text: "撤销错了？一键还原（新操作会清空还原历史）。", side: "bottom" },
+    { sel: "#tocList", title: "⑤ 文档结构", text: "引导线 + 级别徽标 + 滚动跟随；悬停行尾出现 ✎ 编辑 / 🗑 删除。", side: "right" },
+    { sel: "#preview", title: "⑥ 文档预览", text: "渲染后的完整文档：代码高亮、表格、图片全支持。", side: "left" },
+  ];
+  const firstHeading = previewEl.querySelector("h1, h2");
+  if (firstHeading) {
+    const headingText = firstHeading.textContent;
+    steps.push(
+      { el: firstHeading, title: "⑦ 区块编辑入口", text: "悬停标题，最后一个字后面出现 🖊，点击打开右侧编辑面板。", side: "left" },
+      { sel: "#editPanel", title: "⑧ 编辑面板", text: "编辑界面固定在右侧：上半编辑器，下半实时预览。", side: "left", open: true, headingText },
+      { sel: "#editorText", title: "⑨ 编辑器", text: "直接写 Markdown，Tab 缩进；⨁ 插入菜单提供主标题 / 加粗 / 目录等符号。", side: "left" },
+      { sel: "#editPreview", title: "⑩ 实时预览", text: "下方即时渲染你的修改（250ms 防抖），边写边看。", side: "left" },
+      { sel: "#editSave", title: "⑪ 保存与删除", text: "💾 保存写回内存（有文件句柄时自动写回原文件）；🗑 删除区块（标题保留）。", side: "left" },
+    );
+    if (document.getElementById("banner").style.display !== "none") {
+      steps.push({ sel: "#banner", title: "⑫ 本地安全", text: "所有文件数据都在浏览器内处理，不经过任何服务器。关掉这个提示框后仍可点「快速上手」重看。", side: "bottom" });
+    }
+  }
+  return steps;
+}
+
+function startTour() {
+  if (tourActive) return;
+  tourSteps = buildTourSteps();
+  if (!tourSteps.length) return;
+  tourActive = true;
+  tourMask.style.display = "block";
+  tourSpot.style.display = "block";
+  tourCard.style.display = "block";
+  tourMask.addEventListener("click", tourMaskClick);
+  window.addEventListener("scroll", tourOnScroll, { capture: true, passive: true });
+  window.addEventListener("resize", tourOnScroll);
+  tourShowStep(0);
+}
+
+function endTour() {
+  if (!tourActive) return;
+  tourActive = false;
+  tourMask.style.display = "none";
+  tourSpot.style.display = "none";
+  tourCard.style.display = "none";
+  tourMask.removeEventListener("click", tourMaskClick);
+  window.removeEventListener("scroll", tourOnScroll, { capture: true });
+  window.removeEventListener("resize", tourOnScroll);
+  closeEditPanel();
+  localStorage.setItem("mdutils_app_tour_done", "1");
+}
+
+function tourMaskClick() {
+  if (tourIdx >= tourSteps.length - 1) endTour();
+  else tourShowStep(tourIdx + 1);
+}
+
+function tourShowStep(i) {
+  tourIdx = i;
+  const step = tourSteps[i];
+  if (!step) { endTour(); return; }
+  if (step.open && editPanel.classList.contains("hidden")) {
+    openEditPanel(step.headingText);
+  }
+  const el = getTourEl(step);
+  if (!el) { tourMaskClick(); return; }
+  el.scrollIntoView({ block: "center", behavior: "auto" });
+  setTimeout(() => {
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) {
+      setTimeout(() => tourShowStep(tourIdx), 250);
+      return;
+    }
+    tourSpot.style.left = (r.left - 6) + "px";
+    tourSpot.style.top = (r.top - 6) + "px";
+    tourSpot.style.width = (r.width + 12) + "px";
+    tourSpot.style.height = (r.height + 12) + "px";
+    tourRenderCard(step);
+  }, 80);
+}
+
+function tourRenderCard(step) {
+  const total = tourSteps.length;
+  const dots = tourSteps.map((_, j) =>
+    `<span class="dot ${j === tourIdx ? "active" : ""}"></span>`
+  ).join("");
+  tourCard.innerHTML = `
+    <div class="tour-top">
+      <span class="step">${tourIdx + 1} / ${total}</span>
+      <a id="tourSkip">跳过引导</a>
+    </div>
+    <h3>${step.title}</h3>
+    <p>${step.text}</p>
+    <div class="tour-nav">
+      <button id="tourPrev" class="ghost" ${tourIdx === 0 ? "disabled" : ""}>← 上一步</button>
+      <div class="tour-dots">${dots}</div>
+      <button id="tourNext" class="primary">${tourIdx === total - 1 ? "完成 ✓" : "下一步 →"}</button>
+    </div>`;
+  $("tourPrev").addEventListener("click", () => tourShowStep(tourIdx - 1));
+  $("tourNext").addEventListener("click", () =>
+    tourIdx >= total - 1 ? endTour() : tourShowStep(tourIdx + 1));
+  $("tourSkip").addEventListener("click", endTour);
+  const el = getTourEl(step);
+  if (el) tourPositionCard(el.getBoundingClientRect(), step.side);
+}
+
+function tourPositionCard(rect, side) {
+  const W = tourCard.offsetWidth;
+  const H = tourCard.offsetHeight;
+  const pad = 14;
+  let x, y;
+  if (side === "bottom") { x = rect.left + rect.width / 2 - W / 2; y = rect.bottom + pad; }
+  else if (side === "top") { x = rect.left + rect.width / 2 - W / 2; y = rect.top - pad - H; }
+  else if (side === "left") {
+    x = rect.left - pad - W;
+    y = rect.top + rect.height / 2 - H / 2;
+    if (x < 8) x = rect.right + pad;
+  } else {
+    x = rect.right + pad;
+    y = rect.top + rect.height / 2 - H / 2;
+  }
+  x = Math.max(8, Math.min(x, innerWidth - W - 8));
+  y = Math.max(8, Math.min(y, innerHeight - H - 8));
+  tourCard.style.left = x + "px";
+  tourCard.style.top = y + "px";
+}
+
+function tourOnScroll() {
+  if (!tourActive || tourScrollRaf) return;
+  tourScrollRaf = requestAnimationFrame(() => {
+    tourScrollRaf = null;
+    const step = tourSteps[tourIdx];
+    if (!step) return;
+    const el = getTourEl(step);
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    tourSpot.style.left = (r.left - 6) + "px";
+    tourSpot.style.top = (r.top - 6) + "px";
+    tourSpot.style.width = (r.width + 12) + "px";
+    tourSpot.style.height = (r.height + 12) + "px";
+    tourPositionCard(r, step.side);
+  });
+}
+
+$("tourBtn").addEventListener("click", startTour);
 
 // ── 演示文档 ──────────────────────────
 const FALLBACK_DEMO = "# mdutils 本地版演示\n\n这是内置的演示文档（离线可用）。\n\n## 功能\n\n- 文件 ▾ → 打开文件…：选择本机 .md，可编辑并**保存回原文件**\n- 打开文件夹…：浏览文件夹内所有 Markdown\n- 悬停预览标题：🖊 编辑 / 目录行 ✎ 🗑\n- 右侧面板：替换 / 插入 / 添加区块，实时预览\n- ↩ 撤销 / ↪ 还原：纯本地，最多 20 步\n\n## 支持环境\n\n> Chrome / Edge 完整支持；其他浏览器仅支持打开 + 另存为下载。\n\n| 功能 | Chrome/Edge | 其他 |\n| --- | --- | --- |\n| 打开文件 | ✅ | ✅ |\n| 保存回原文件 | ✅ | ❌（另存为） |\n| 打开文件夹 | ✅ | ❌ |\n\n## 代码示例\n\n```python\ndef greet(name):\n    return f\"你好, {name}!\"\n```\n";
@@ -999,7 +1323,11 @@ async function loadDemo() {
   setStatus("演示文档（编辑仅保存在内存，可另存为）");
 }
 
-loadDemo();
+loadDemo().then(() => {
+  if (!localStorage.getItem("mdutils_app_tour_done")) {
+    setTimeout(startTour, 600);
+  }
+});
 </script>
 </body>
 </html>
