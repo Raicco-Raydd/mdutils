@@ -1,5 +1,7 @@
 # mdutils
 
+![mdutils logo](properties/Mdutils.png)
+
 Markdown 文档工具箱 — 专为 AI Agent 工作流设计。
 
 > **v2.1.0** 🎉 重大更新：新增 **Web UI**（预览 + 结构化编辑），详见下方「🌐 Web UI」章节。
