@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mdutils · 在线预览演示</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-2: #1c2230;
+    --border: #262e3d;
+    --text: #d7dee8;
+    --text-dim: #8b94a7;
+    --accent: #4fd6be;
+    --accent-dim: #2a8f7d;
+    --code-bg: #0b0d12;
+    --err: #ff6b6b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    flex: none;
+  }
+  .brand { font-weight: 700; font-size: 15px; white-space: nowrap; }
+  .brand span { color: var(--accent); font-weight: 400; font-size: 12px; margin-left: 2px; }
+  .actions { flex: 1; display: flex; justify-content: flex-end; gap: 8px; }
+  button {
+    background: var(--accent-dim);
+    color: #05120f;
+    border: none;
+    border-radius: 6px;
+    padding: 7px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  button:hover { background: var(--accent); }
+  button.ghost {
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    font-weight: 400;
+  }
+  button.ghost:hover { color: var(--accent); border-color: var(--accent-dim); background: var(--panel-2); }
+
+  .banner {
+    flex: none;
+    background: rgba(255, 193, 7, .08);
+    border-bottom: 1px solid rgba(255, 193, 7, .25);
+    color: #e8c468;
+    font-size: 12px;
+    padding: 6px 16px;
+    text-align: center;
+  }
+  .banner a { color: var(--accent); text-decoration: none; }
+  .banner a:hover { text-decoration: underline; }
+
+  main { flex: 1; display: flex; overflow: hidden; }
+
+  aside {
+    width: 260px;
+    flex: none;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 12px 8px 20px;
+  }
+  .toc-title {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    padding: 4px 10px 10px;
+    text-transform: uppercase;
+  }
+  #tocList { list-style: none; }
+  #tocList ul { list-style: none; padding-left: 16px; position: relative; }
+  #tocList li ul::before {
+    content: ""; position: absolute; left: 4px; top: 0; bottom: 0;
+    border-left: 1px solid var(--border);
+  }
+  #tocList li li > .toc-row { position: relative; }
+  #tocList li li > .toc-row::before {
+    content: ""; position: absolute; left: -12px; top: 50%;
+    width: 12px; border-top: 1px solid var(--border);
+  }
+  .toc-row { display: flex; align-items: center; border-radius: 5px; }
+  .toc-row:hover { background: var(--panel-2); }
+  .toc-row a {
+    flex: 1; min-width: 0;
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 13px;
+    padding: 3px 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .toc-row a:hover { color: var(--accent); }
+  .toc-level {
+    flex: none;
+    font-size: 10px;
+    font-family: Consolas, monospace;
+    color: var(--accent-dim);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0 4px;
+    line-height: 1.6;
+    margin: 0 8px 0 2px;
+  }
+  .toc-empty { color: var(--text-dim); font-size: 13px; padding: 4px 10px; }
+
+  article {
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
+    padding: 36px 48px 80px;
+    line-height: 1.75;
+    font-size: 15px;
+    max-width: 880px;
+    margin: 0 48px 0 56px;
+    width: 100%;
+  }
+  article h1, article h2, article h3, article h4, article h5, article h6 { scroll-margin-top: 12px; color: #eef2f8; margin: 1.6em 0 0.6em; line-height: 1.3; }
+  article h1 { font-size: 1.9em; border-bottom: 1px solid var(--border); padding-bottom: 0.35em; }
+  article h2 { font-size: 1.45em; }
+  article h3 { font-size: 1.2em; color: var(--accent); }
+  article p { margin: 0.7em 0; }
+  article a { color: var(--accent); text-decoration: none; }
+  article a:hover { text-decoration: underline; }
+  article strong { color: #eef2f8; }
+  article code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 13px;
+    font-family: Consolas, "Courier New", monospace;
+    color: var(--accent);
+  }
+  article pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    margin: 1em 0;
+  }
+  article pre code { background: none; border: none; padding: 0; color: #c9d4e3; font-size: 13px; }
+  article blockquote {
+    border-left: 3px solid var(--accent-dim);
+    background: var(--panel);
+    padding: 10px 16px;
+    margin: 1em 0;
+    border-radius: 0 6px 6px 0;
+    color: var(--text-dim);
+  }
+  article table { border-collapse: collapse; margin: 1em 0; width: 100%; font-size: 14px; }
+  article th, article td { border: 1px solid var(--border); padding: 7px 12px; text-align: left; }
+  article th { background: var(--panel-2); color: #eef2f8; }
+  article tr:nth-child(even) td { background: var(--panel); }
+  article ul, article ol { padding-left: 1.6em; margin: 0.6em 0; }
+  article li { margin: 0.25em 0; }
+  article hr { border: none; border-top: 1px solid var(--border); margin: 1.6em 0; }
+  article img { max-width: 100%; border-radius: 8px; }
+  article del { color: var(--text-dim); }
+  .placeholder { color: var(--text-dim); text-align: center; margin-top: 20vh; }
+
+  #fileInput { display: none; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent-dim); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">🦊 mdutils<span>在线预览</span></div>
+  <div class="actions">
+    <button id="openFileBtn">📄 打开本地文件</button>
+    <button id="loadDemoBtn" class="ghost">演示文档</button>
+  </div>
+</header>
+
+<div class="banner">
+  ⚠️ 静态预览版：仅展示渲染效果，本地文件在浏览器内读取、<b>不会上传</b>。
+  完整版（区块编辑 / 保存 / 撤销）需本地运行 ——
+  <a href="https://github.com/Raicco-Raydd/mdutils" target="_blank" rel="noopener">GitHub 仓库</a>
+</div>
+
+<main>
+  <aside>
+    <div class="toc-title">文档结构</div>
+    <ul id="tocList"><li class="toc-empty">加载中…</li></ul>
+  </aside>
+  <article id="preview">
+    <div class="placeholder">加载演示文档中…</div>
+  </article>
+</main>
+
+<input type="file" id="fileInput" accept=".md,.markdown,.txt" hidden>
+
+<script src="./marked.min.js"></script>
+<script src="./highlight.min.js"></script>
+<script>
+"use strict";
+
+const $ = (id) => document.getElementById(id);
+const previewEl = $("preview");
+
+function renderMarkdown(text, name) {
+  const html = marked.parse(text)
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<iframe[\s\S]*?<\/iframe>/gi, "");
+  previewEl.innerHTML = html;
+  previewEl.querySelectorAll("pre code").forEach((el) => {
+    try { hljs.highlightElement(el); } catch (e) { /* 忽略 */ }
+  });
+  buildToc();
+  document.title = name ? `mdutils · ${name}` : "mdutils · 在线预览演示";
+}
+
+function buildToc() {
+  const ul = $("tocList");
+  ul.innerHTML = "";
+  const hs = Array.from(previewEl.querySelectorAll("h1,h2,h3,h4,h5,h6"));
+  if (!hs.length) {
+    ul.innerHTML = '<li class="toc-empty">（无标题）</li>';
+    return;
+  }
+  hs.forEach((h, i) => { h.id = "sec-" + i; });
+
+  const stack = [];
+  hs.forEach((h, i) => {
+    const level = parseInt(h.tagName[1], 10);
+    const title = h.textContent;
+
+    const li = document.createElement("li");
+    const row = document.createElement("div");
+    row.className = "toc-row";
+    const badge = document.createElement("span");
+    badge.className = "toc-level";
+    badge.textContent = "H" + level;
+    const a = document.createElement("a");
+    a.textContent = title;
+    a.href = "#sec-" + i;
+    a.addEventListener("click", (e) => {
+      e.preventDefault();
+      document.getElementById("sec-" + i).scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    row.append(badge, a);
+    li.appendChild(row);
+
+    while (stack.length && stack[stack.length - 1].level >= level) stack.pop();
+    if (stack.length) {
+      const parent = stack[stack.length - 1];
+      if (!parent.childUl) {
+        parent.childUl = document.createElement("ul");
+        parent.li.appendChild(parent.childUl);
+      }
+      parent.childUl.appendChild(li);
+    } else {
+      ul.appendChild(li);
+    }
+    stack.push({ level, li });
+  });
+}
+
+async function loadDemo() {
+  try {
+    const resp = await fetch("./demo.md");
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    renderMarkdown(await resp.text(), "演示文档");
+  } catch (err) {
+    previewEl.innerHTML = `<div class="placeholder">❌ 演示文档加载失败：${err.message}</div>`;
+  }
+}
+
+$("loadDemoBtn").addEventListener("click", loadDemo);
+
+$("openFileBtn").addEventListener("click", () => $("fileInput").click());
+
+$("fileInput").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => renderMarkdown(String(reader.result), file.name);
+  reader.onerror = () => alert("读取文件失败");
+  reader.readAsText(file, "utf-8");
+  e.target.value = "";
+});
+
+loadDemo();
+</script>
+</body>
+</html>
