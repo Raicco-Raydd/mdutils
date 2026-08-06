@@ -68,9 +68,24 @@
     font-size: 12px;
     padding: 6px 16px;
     text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    position: relative;
+    padding-right: 40px;
   }
   .banner a { color: var(--accent); text-decoration: none; }
   .banner a:hover { text-decoration: underline; }
+  .banner-close {
+    position: absolute;
+    right: 10px; top: 50%;
+    transform: translateY(-50%);
+    background: none; border: none;
+    color: #e8c468; font-size: 14px;
+    cursor: pointer; padding: 2px 6px;
+  }
+  .banner-close:hover { color: #fff; }
 
   main { flex: 1; display: flex; overflow: hidden; }
 
@@ -199,10 +214,9 @@
   </div>
 </header>
 
-<div class="banner">
-  ⚠️ 静态预览版：仅展示渲染效果，本地文件在浏览器内读取、<b>不会上传</b>。
-  完整版（区块编辑 / 保存 / 撤销）需本地运行 ——
-  <a href="https://github.com/Raicco-Raydd/mdutils" target="_blank" rel="noopener">GitHub 仓库</a>
+<div class="banner" id="banner">
+  <span>⚠️ 静态预览版：仅展示渲染效果，本地文件在浏览器内读取、<b>不会上传</b>。🆕 完整本地版（编辑 / 保存回原文件，数据不出浏览器）→ <a href="./app/">在线使用</a> ｜ <a href="https://github.com/Raicco-Raydd/mdutils" target="_blank" rel="noopener">GitHub 仓库</a></span>
+  <button class="banner-close" id="bannerClose" title="关闭提示">✕</button>
 </div>
 
 <main>
@@ -224,6 +238,13 @@
 
 const $ = (id) => document.getElementById(id);
 const previewEl = $("preview");
+
+// 横幅关闭（记忆）
+$("bannerClose").addEventListener("click", () => {
+  $("banner").style.display = "none";
+  try { localStorage.setItem("mdutils_banner_closed", "1"); } catch (e) { /* 忽略 */ }
+});
+if (localStorage.getItem("mdutils_banner_closed")) $("banner").style.display = "none";
 
 function renderMarkdown(text, name) {
   const html = marked.parse(text)

@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mdutils · 本地网页版</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-2: #1c2230;
+    --border: #262e3d;
+    --text: #d7dee8;
+    --text-dim: #8b94a7;
+    --accent: #4fd6be;
+    --accent-dim: #2a8f7d;
+    --code-bg: #0b0d12;
+    --err: #ff6b6b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── 顶栏 ─────────────────────────── */
+  header {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    flex: none;
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .brand { font-weight: 700; font-size: 15px; white-space: nowrap; }
+  .brand span { color: var(--accent); font-weight: 400; font-size: 12px; margin-left: 2px; }
+  button {
+    background: var(--accent-dim);
+    color: #05120f;
+    border: none;
+    border-radius: 6px;
+    padding: 7px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  button:hover { background: var(--accent); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button.ghost {
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    font-weight: 400;
+  }
+  button.ghost:hover { color: var(--accent); border-color: var(--accent-dim); background: var(--panel-2); }
+  button.ghost:disabled:hover { color: var(--text-dim); border-color: var(--border); background: transparent; }
+  button.ghost.danger:hover { color: var(--err); border-color: var(--err); }
+
+  .status-box {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--panel-2);
+    border: 1px solid var(--accent-dim);
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-size: 12px;
+    justify-self: center;
+  }
+  .status-box .stat-file {
+    color: var(--accent); font-weight: 700;
+    font-family: Consolas, "Courier New", monospace;
+    max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .status-box .stat {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+    padding: 1px 7px; color: var(--text);
+    font-family: Consolas, "Courier New", monospace; font-size: 11px; white-space: nowrap;
+  }
+  .header-right { display: flex; align-items: center; gap: 8px; justify-content: flex-end; min-width: 0; }
+  .msg { font-size: 12px; color: var(--text-dim); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .msg.err { color: var(--err); }
+
+  /* 文件菜单 */
+  .menu-wrap { position: relative; }
+  .menu {
+    position: absolute; top: calc(100% + 4px); left: 0; z-index: 60;
+    display: none; flex-direction: column; min-width: 200px;
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 6px; box-shadow: 0 10px 28px rgba(0,0,0,.55);
+  }
+  .menu.show { display: flex; }
+  .menu button {
+    background: none; border: none; border-radius: 6px; color: var(--text);
+    font-weight: 400; font-size: 13px; text-align: left; padding: 7px 10px; cursor: pointer;
+  }
+  .menu button:hover { background: var(--bg); color: var(--accent); }
+  .menu button:disabled { opacity: .4; }
+  .menu hr { border: none; border-top: 1px solid var(--border); margin: 4px 6px; }
+  .menu kbd { font-size: 10px; color: var(--text-dim); border: 1px solid var(--border); border-radius: 3px; padding: 0 4px; margin-left: 8px; font-family: Consolas, monospace; }
+
+  .banner {
+    flex: none;
+    background: rgba(255, 193, 7, .08);
+    border-bottom: 1px solid rgba(255, 193, 7, .25);
+    color: #e8c468; font-size: 12px; padding: 6px 16px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    position: relative;
+    padding-right: 40px;
+  }
+  .banner a { color: var(--accent); text-decoration: none; }
+  .banner a:hover { text-decoration: underline; }
+  .banner-close {
+    position: absolute;
+    right: 10px; top: 50%;
+    transform: translateY(-50%);
+    background: none; border: none;
+    color: #e8c468; font-size: 14px;
+    cursor: pointer; padding: 2px 6px;
+  }
+  .banner-close:hover { color: #fff; }
+
+  /* ── 主体 ─────────────────────────── */
+  main { flex: 1; display: flex; overflow: hidden; }
+  aside {
+    width: 260px; flex: none; background: var(--panel);
+    border-right: 1px solid var(--border); overflow-y: auto; padding: 12px 8px 20px;
+  }
+  .toc-title { font-size: 11px; color: var(--text-dim); letter-spacing: 1px; padding: 4px 10px 10px; text-transform: uppercase; }
+  #tocList { list-style: none; }
+  #tocList ul { list-style: none; padding-left: 16px; position: relative; }
+  #tocList li ul::before { content: ""; position: absolute; left: 4px; top: 0; bottom: 0; border-left: 1px solid var(--border); }
+  #tocList li li > .toc-row { position: relative; }
+  #tocList li li > .toc-row::before { content: ""; position: absolute; left: -12px; top: 50%; width: 12px; border-top: 1px solid var(--border); }
+  .toc-row { display: flex; align-items: center; justify-content: space-between; border-radius: 5px; }
+  .toc-row:hover { background: var(--panel-2); }
+  .toc-row a { flex: 1; min-width: 0; color: var(--text-dim); text-decoration: none; font-size: 13px; padding: 3px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .toc-row a:hover { color: var(--accent); }
+  .toc-row.active { background: var(--panel-2); box-shadow: inset 2px 0 0 var(--accent); }
+  .toc-row.active a { color: var(--accent); font-weight: 600; }
+  .toc-level {
+    flex: none; font-size: 10px; font-family: Consolas, monospace; color: var(--accent-dim);
+    background: var(--bg); border: 1px solid var(--border); border-radius: 3px;
+    padding: 0 4px; line-height: 1.6; margin: 0 8px 0 2px;
+  }
+  .toc-actions { display: none; gap: 2px; padding-right: 4px; }
+  .toc-row:hover .toc-actions { display: flex; }
+  .toc-actions button { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 12px; padding: 2px 5px; border-radius: 4px; font-weight: 400; }
+  .toc-actions button:hover { color: var(--accent); background: var(--bg); }
+  .toc-actions button.del:hover { color: var(--err); }
+  .toc-empty { color: var(--text-dim); font-size: 13px; padding: 4px 10px; }
+
+  article {
+    flex: 1; min-width: 0; overflow-y: auto; padding: 36px 48px 80px;
+    line-height: 1.75; font-size: 15px; max-width: 880px; margin: 0 48px 0 56px; width: 100%;
+  }
+  article h1, article h2, article h3, article h4, article h5, article h6 { scroll-margin-top: 12px; color: #eef2f8; margin: 1.6em 0 0.6em; line-height: 1.3; }
+  article h1 { font-size: 1.9em; border-bottom: 1px solid var(--border); padding-bottom: 0.35em; }
+  article h2 { font-size: 1.45em; }
+  article h3 { font-size: 1.2em; color: var(--accent); }
+  article p { margin: 0.7em 0; }
+  article a { color: var(--accent); text-decoration: none; }
+  article a:hover { text-decoration: underline; }
+  article strong { color: #eef2f8; }
+  article code { background: var(--code-bg); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; font-size: 13px; font-family: Consolas, "Courier New", monospace; color: var(--accent); }
+  article pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 1em 0; }
+  article pre code { background: none; border: none; padding: 0; color: #c9d4e3; font-size: 13px; }
+  article blockquote { border-left: 3px solid var(--accent-dim); background: var(--panel); padding: 10px 16px; margin: 1em 0; border-radius: 0 6px 6px 0; color: var(--text-dim); }
+  article table { border-collapse: collapse; margin: 1em 0; width: 100%; font-size: 14px; }
+  article th, article td { border: 1px solid var(--border); padding: 7px 12px; text-align: left; }
+  article th { background: var(--panel-2); color: #eef2f8; }
+  article tr:nth-child(even) td { background: var(--panel); }
+  article ul, article ol { padding-left: 1.6em; margin: 0.6em 0; }
+  article li { margin: 0.25em 0; }
+  article hr { border: none; border-top: 1px solid var(--border); margin: 1.6em 0; }
+  article img { max-width: 100%; border-radius: 8px; }
+  article del { color: var(--text-dim); }
+  .placeholder { color: var(--text-dim); text-align: center; margin-top: 20vh; }
+
+  .heading-edit {
+    display: inline-block; visibility: hidden; margin-left: 6px;
+    background: none; border: none; color: var(--text-dim); font-size: 0.8em; line-height: 1;
+    padding: 0 3px; cursor: pointer; vertical-align: baseline;
+  }
+  .heading-edit:hover { color: var(--accent); }
+  article :is(h1,h2,h3,h4,h5,h6):hover .heading-edit { visibility: visible; }
+
+  .sec { margin: 0; }
+  .sec-add { display: flex; align-items: center; gap: 12px; margin: 6px 0 2px; opacity: 0; transition: opacity .15s; }
+  .sec-add::before, .sec-add::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+  .sec-add button { background: none; border: 1px dashed var(--border); color: var(--text-dim); font-size: 12px; padding: 3px 14px; border-radius: 20px; font-weight: 400; cursor: pointer; white-space: nowrap; }
+  .sec:hover + .sec-add, .sec-add:hover { opacity: 1; }
+  .sec-add button:hover { color: var(--accent); border-color: var(--accent-dim); background: var(--panel-2); }
+
+  /* ── 编辑面板 ─────────────────────── */
+  .edit-panel {
+    width: 430px; flex: none; display: flex; flex-direction: column;
+    background: var(--panel); border-left: 1px solid var(--border); min-height: 0;
+  }
+  .edit-panel.hidden { display: none; }
+  .edit-head { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  .edit-head .t { font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .edit-head .s { flex: 1; min-width: 0; color: var(--text-dim); font-size: 12px; font-family: Consolas, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .edit-head .close { background: none; border: none; color: var(--text-dim); font-size: 16px; cursor: pointer; }
+  .edit-head .close:hover { color: var(--err); }
+  .editor-mode { display: flex; gap: 8px; padding: 10px 14px 0; }
+  .editor-mode button { background: transparent; color: var(--text-dim); border: 1px solid var(--border); font-weight: 400; padding: 5px 12px; border-radius: 6px; font-size: 12px; }
+  .editor-mode button.active { background: var(--accent-dim); color: #05120f; border-color: var(--accent-dim); font-weight: 600; }
+  .editor-toolbar { position: relative; display: flex; gap: 8px; padding: 10px 14px 0; }
+  .editor-toolbar button { background: transparent; color: var(--text-dim); border: 1px solid var(--border); font-weight: 400; padding: 5px 12px; border-radius: 6px; font-size: 12px; }
+  .editor-toolbar button:hover { color: var(--accent); border-color: var(--accent-dim); background: var(--panel-2); }
+  .insert-menu {
+    position: absolute; top: calc(100% + 4px); left: 14px; z-index: 60;
+    display: none; grid-template-columns: repeat(4, 1fr); gap: 4px; width: 400px;
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 8px; box-shadow: 0 10px 28px rgba(0,0,0,.55);
+  }
+  .insert-menu.show { display: grid; }
+  .insert-menu button { display: flex; flex-direction: column; align-items: center; gap: 3px; background: none; border: 1px solid transparent; border-radius: 6px; color: var(--text-dim); font-weight: 400; font-size: 11px; padding: 7px 4px; cursor: pointer; }
+  .insert-menu button:hover { color: var(--accent); border-color: var(--border); background: var(--bg); }
+  .insert-menu .sym { font-size: 15px; line-height: 1.2; }
+  #editorText {
+    flex: 1; min-height: 120px; width: 100%; margin-top: 10px;
+    background: var(--code-bg); color: var(--text); border: none;
+    border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+    padding: 14px; font-family: Consolas, "Courier New", monospace;
+    font-size: 13.5px; line-height: 1.6; resize: none; outline: none;
+  }
+  .edit-divider {
+    flex: none; display: flex; align-items: center; gap: 8px; padding: 6px 14px;
+    background: var(--panel-2); border-bottom: 1px solid var(--border);
+    font-size: 11px; font-weight: 600; letter-spacing: 2px; color: var(--text-dim); text-transform: uppercase;
+  }
+  .edit-divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+  #editPreview { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 16px 40px; font-size: 14px; line-height: 1.7; }
+  #editPreview h1, #editPreview h2, #editPreview h3, #editPreview h4 { color: #eef2f8; margin: 1.2em 0 .5em; line-height: 1.3; }
+  #editPreview h1 { font-size: 1.5em; border-bottom: 1px solid var(--border); padding-bottom: .3em; }
+  #editPreview h2 { font-size: 1.25em; }
+  #editPreview h3 { font-size: 1.1em; color: var(--accent); }
+  #editPreview p { margin: .6em 0; }
+  #editPreview a { color: var(--accent); text-decoration: none; }
+  #editPreview strong { color: #eef2f8; }
+  #editPreview code { background: var(--code-bg); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; font-size: 12.5px; font-family: Consolas, monospace; color: var(--accent); }
+  #editPreview pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; overflow-x: auto; margin: .8em 0; }
+  #editPreview pre code { background: none; border: none; padding: 0; color: #c9d4e3; font-size: 12.5px; }
+  #editPreview blockquote { border-left: 3px solid var(--accent-dim); background: var(--panel-2); padding: 8px 12px; margin: .8em 0; border-radius: 0 6px 6px 0; color: var(--text-dim); }
+  #editPreview table { border-collapse: collapse; margin: .8em 0; font-size: 13px; }
+  #editPreview th, #editPreview td { border: 1px solid var(--border); padding: 5px 10px; text-align: left; }
+  #editPreview th { background: var(--panel-2); color: #eef2f8; }
+  #editPreview ul, #editPreview ol { padding-left: 1.5em; margin: .5em 0; }
+  #editPreview li { margin: .2em 0; }
+  #editPreview hr { border: none; border-top: 1px solid var(--border); margin: 1.2em 0; }
+  #editPreview img { max-width: 100%; border-radius: 6px; }
+  .edit-preview-ph { color: var(--text-dim); text-align: center; padding: 48px 0; font-size: 12px; }
+  .edit-foot { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--border); }
+  .edit-foot .hint { flex: 1; font-size: 11px; color: var(--text-dim); }
+  .edit-foot button { font-size: 12px; padding: 6px 14px; }
+
+  /* 弹窗 */
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: none; align-items: center; justify-content: center; z-index: 50; }
+  .overlay.show { display: flex; }
+  .browser { width: 520px; max-width: 92vw; max-height: 80vh; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; display: flex; flex-direction: column; overflow: hidden; }
+  .browser-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .browser-head .title { font-size: 14px; font-weight: 600; white-space: nowrap; }
+  .close { background: none; border: none; color: var(--text-dim); font-size: 18px; cursor: pointer; padding: 0 4px; }
+  .close:hover { color: var(--err); }
+  .browser-body { overflow-y: auto; padding: 8px; flex: 1; }
+  .browser-item { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; font-family: Consolas, monospace; color: var(--text); }
+  .browser-item:hover { background: var(--panel-2); color: var(--accent); }
+  .browser-item .icon { width: 20px; text-align: center; flex: none; }
+  .browser-empty { color: var(--text-dim); font-size: 13px; padding: 16px; text-align: center; }
+  .browser-foot { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-dim); }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent-dim); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="brand">🦊 mdutils<span>本地版</span></div>
+    <div class="menu-wrap">
+      <button type="button" id="fileBtn" class="ghost">文件 ▾</button>
+      <div class="menu" id="fileMenu">
+        <button type="button" data-act="open">📂 打开文件…</button>
+        <button type="button" data-act="folder">🗂 打开文件夹…</button>
+        <button type="button" data-act="new">➕ 新建文件…</button>
+        <hr>
+        <button type="button" data-act="save">💾 保存 <kbd>Ctrl+S</kbd></button>
+        <button type="button" data-act="saveas">📄 另存为…</button>
+        <hr>
+        <button type="button" data-act="demo">📄 演示文档</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="status-box">
+    <span class="stat-file" id="statFile">未打开</span>
+    <span class="stat" id="statChars">— 字符</span>
+    <span class="stat" id="statLines">— 行</span>
+    <span class="stat" id="statHeadings">— 标题</span>
+  </div>
+
+  <div class="header-right">
+    <div class="msg" id="msg"></div>
+    <button type="button" id="undoBtn" class="ghost" title="撤销上次修改" disabled>↩ 撤销</button>
+    <button type="button" id="redoBtn" class="ghost" title="还原撤销" disabled>↪ 还原</button>
+  </div>
+</header>
+
+<div class="banner" id="banner">
+  <span>🔒 本地网页版：所有文件数据在浏览器内处理，<b>不经过任何服务器</b>。完整编辑（保存到原文件 / 文件夹浏览）需要 Chrome 或 Edge；其他浏览器仅支持打开 + 另存为。</span>
+  <button class="banner-close" id="bannerClose" title="关闭提示">✕</button>
+</div>
+
+<main>
+  <aside>
+    <div class="toc-title">文档结构（悬停行显示操作）</div>
+    <ul id="tocList"><li class="toc-empty">未打开文件</li></ul>
+  </aside>
+
+  <article id="preview">
+    <div class="placeholder">文件 ▾ → 打开文件…，或加载演示文档 🦊</div>
+  </article>
+
+  <section class="edit-panel hidden" id="editPanel">
+    <div class="edit-head">
+      <span class="t">✎ 编辑区块</span>
+      <span class="s" id="editHeadingLabel"></span>
+      <button class="close" id="editClose" title="关闭 (Esc)">✕</button>
+    </div>
+    <div class="editor-mode">
+      <button type="button" id="modeReplace" class="active">替换区块内容</button>
+      <button type="button" id="modeInsert">标题后插入</button>
+      <button type="button" id="modeAdd">＋ 添加区块</button>
+    </div>
+    <div class="editor-toolbar">
+      <button type="button" id="insertBtn" class="ghost">⨁ 插入 ▾</button>
+      <div class="insert-menu" id="insertMenu">
+        <button type="button" data-insert="h1"><span class="sym">H1</span>主标题</button>
+        <button type="button" data-insert="h2"><span class="sym">H2</span>副标题</button>
+        <button type="button" data-insert="h3"><span class="sym">H3</span>三级标题</button>
+        <button type="button" data-insert="h4"><span class="sym">H4</span>四级标题</button>
+        <button type="button" data-insert="bold"><span class="sym">𝐁</span>加粗</button>
+        <button type="button" data-insert="italic"><span class="sym">𝐼</span>斜体</button>
+        <button type="button" data-insert="strike"><span class="sym">S̶</span>删除线</button>
+        <button type="button" data-insert="inline-code"><span class="sym">`</span>行内代码</button>
+        <button type="button" data-insert="quote"><span class="sym">❝</span>引用</button>
+        <button type="button" data-insert="ul"><span class="sym">•</span>无序列表</button>
+        <button type="button" data-insert="ol"><span class="sym">1.</span>有序列表</button>
+        <button type="button" data-insert="task"><span class="sym">☑</span>任务列表</button>
+        <button type="button" data-insert="link"><span class="sym">🔗</span>链接</button>
+        <button type="button" data-insert="image"><span class="sym">🖼</span>图片</button>
+        <button type="button" data-insert="code"><span class="sym">{ }</span>代码块</button>
+        <button type="button" data-insert="table"><span class="sym">▦</span>表格</button>
+        <button type="button" data-insert="hr"><span class="sym">—</span>分割线</button>
+        <button type="button" data-insert="toc"><span class="sym">☰</span>目录</button>
+      </div>
+    </div>
+    <textarea id="editorText" spellcheck="false" placeholder="# 在这里编写 Markdown 内容…（Tab 缩进，下方实时预览）"></textarea>
+    <div class="edit-divider">预览</div>
+    <div id="editPreview"><div class="edit-preview-ph">编辑实时预览区</div></div>
+    <div class="edit-foot">
+      <button id="editSave" class="primary">💾 保存</button>
+      <button id="editDelete" class="ghost danger">🗑 删除区块</button>
+      <button id="editCancel" class="ghost">取消</button>
+      <span class="hint" id="editHint">替换 = 覆盖该标题下的内容；插入 = 在标题行后追加</span>
+    </div>
+  </section>
+</main>
+
+<!-- 文件夹文件列表 -->
+<div class="overlay" id="dirOverlay">
+  <div class="browser">
+    <div class="browser-head">
+      <span class="title" id="dirTitle">🗂 文件夹</span>
+      <button class="close" id="dirClose">✕</button>
+    </div>
+    <div class="browser-body" id="dirList"></div>
+    <div class="browser-foot" id="dirFoot"></div>
+  </div>
+</div>
+
+<input type="file" id="fileInput" accept=".md,.markdown,.txt" hidden>
+
+<script src="./marked.min.js"></script>
+<script src="./highlight.min.js"></script>
+<script src="./mdutils.js"></script>
+<script>
+"use strict";
+
+const $ = (id) => document.getElementById(id);
+const previewEl = $("preview");
+const msgEl = $("msg");
+
+// ── 能力检测 ──────────────────────────
+const hasFSA = "showOpenFilePicker" in window;
+if (!hasFSA) {
+  $("banner").querySelector("span").textContent = "⚠️ 当前浏览器不支持 File System Access API（需要 Chrome / Edge）。仅支持：打开文件预览、编辑、另存为下载。";
+  $("fileMenu").querySelector('[data-act="folder"]').disabled = true;
+}
+
+// ── 状态 ──────────────────────────────
+let currentHandle = null;   // FileSystemFileHandle
+let currentName = "未打开";
+let currentContent = "";
+let fileEncoding = "utf-8";
+let undoStack = [];
+let redoStack = [];
+let currentEditHeading = null;
+let editAnchor = null;
+let editorMode = "replace";
+const headingTexts = new Map();
+let tocItems = [];
+const fileMenu = $("fileMenu");
+const dirOverlay = $("dirOverlay");
+
+function setStatus(text, isErr) {
+  msgEl.textContent = text || "";
+  msgEl.className = isErr ? "err" : "";
+}
+
+// 横幅关闭（记忆，两个页面共用同一开关）
+$("bannerClose").addEventListener("click", () => {
+  $("banner").style.display = "none";
+  try { localStorage.setItem("mdutils_banner_closed", "1"); } catch (e) { /* 忽略 */ }
+});
+if (localStorage.getItem("mdutils_banner_closed")) $("banner").style.display = "none";
+
+// ── 文件读写（File System Access API） ──
+async function readHandle(handle) {
+  const buf = await (await handle.getFile()).arrayBuffer();
+  const utf8 = new TextDecoder("utf-8").decode(buf);
+  if (!utf8.includes("\uFFFD")) return { text: utf8, encoding: "utf-8" };
+  try {
+    const gbk = new TextDecoder("gbk").decode(buf);
+    return { text: gbk, encoding: "gbk" };
+  } catch (e) {
+    return { text: utf8, encoding: "utf-8" };
+  }
+}
+
+async function writeHandle(handle, text) {
+  const w = await handle.createWritable();
+  await w.write(text);
+  await w.close();
+}
+
+async function openFileViaPicker() {
+  try {
+    const [handle] = await window.showOpenFilePicker({
+      multiple: false,
+      types: [{ description: "Markdown 文档", accept: { "text/markdown": [".md", ".markdown"], "text/plain": [".txt"] } }],
+    });
+    await loadHandle(handle);
+  } catch (err) { if (err.name !== "AbortError") alert("打开失败: " + err.message); }
+}
+
+async function loadHandle(handle) {
+  const { text, encoding } = await readHandle(handle);
+  currentHandle = handle;
+  currentContent = text;
+  fileEncoding = encoding;
+  currentName = handle.name;
+  undoStack = []; redoStack = [];
+  updateUndoRedo();
+  renderAll();
+  setStatus(`已打开 ${currentName}` + (encoding !== "utf-8" ? `（${encoding}，保存将转为 UTF-8）` : ""));
+}
+
+async function saveCurrent() {
+  if (!currentHandle) { alert("尚未打开文件：请先「打开文件」或「另存为」"); return; }
+  if (fileEncoding !== "utf-8" && !confirm("该文件为 GBK 编码，保存后将转为 UTF-8，继续？")) return;
+  await writeHandle(currentHandle, currentContent);
+  fileEncoding = "utf-8";
+  setStatus(`💾 已保存 ${currentName}`);
+}
+
+async function saveAs() {
+  try {
+    const handle = await window.showSaveFilePicker({
+      suggestedName: currentName || "新文档.md",
+      types: [{ description: "Markdown", accept: { "text/markdown": [".md"] } }],
+    });
+    await writeHandle(handle, currentContent);
+    currentHandle = handle;
+    currentName = handle.name;
+    fileEncoding = "utf-8";
+    setStatus(`📄 已另存为 ${currentName}`);
+  } catch (err) { if (err.name !== "AbortError") alert("另存为失败: " + err.message); }
+}
+
+async function newFile() {
+  try {
+    const handle = await window.showSaveFilePicker({
+      suggestedName: "新文档.md",
+      types: [{ description: "Markdown", accept: { "text/markdown": [".md"] } }],
+    });
+    currentContent = "# 新文档\n\n";
+    await writeHandle(handle, currentContent);
+    currentHandle = handle;
+    currentName = handle.name;
+    fileEncoding = "utf-8";
+    undoStack = []; redoStack = []; updateUndoRedo();
+    renderAll();
+    setStatus(`➕ 已新建 ${currentName}`);
+  } catch (err) { if (err.name !== "AbortError") alert("新建失败: " + err.message); }
+}
+
+// 打开文件夹（Chrome/Edge）
+let dirHandle = null;
+async function openFolder() {
+  try {
+    dirHandle = await window.showDirectoryPicker();
+    $("dirTitle").textContent = "🗂 " + dirHandle.name;
+    dirOverlay.classList.add("show");
+    renderDirList();
+  } catch (err) { if (err.name !== "AbortError") alert("打开文件夹失败: " + err.message); }
+}
+
+async function renderDirList() {
+  const body = $("dirList");
+  body.innerHTML = "";
+  const files = [];
+  for await (const entry of dirHandle.values()) {
+    if (entry.kind === "file" && /\.(md|markdown|txt)$/i.test(entry.name)) files.push(entry);
+  }
+  if (!files.length) {
+    body.innerHTML = '<div class="browser-empty">（该文件夹没有 .md 文件）</div>';
+    $("dirFoot").textContent = "";
+    return;
+  }
+  files.sort((a, b) => a.name.localeCompare(b.name));
+  files.forEach((entry) => {
+    const div = document.createElement("div");
+    div.className = "browser-item";
+    div.innerHTML = `<span class="icon">📄</span><span>${escapeHtml(entry.name)}</span>`;
+    div.addEventListener("click", async () => {
+      try {
+        const handle = await dirHandle.getFileHandle(entry.name);
+        dirOverlay.classList.remove("show");
+        await loadHandle(handle);
+      } catch (err) { alert("打开失败: " + err.message); }
+    });
+    body.appendChild(div);
+  });
+  $("dirFoot").textContent = `${files.length} 个 Markdown 文件`;
+}
+
+// 降级：普通文件输入（非 Chromium）
+$("fileInput").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  currentHandle = null;
+  currentContent = text;
+  fileEncoding = "utf-8";
+  currentName = file.name;
+  undoStack = []; redoStack = []; updateUndoRedo();
+  renderAll();
+  setStatus(`已打开 ${currentName}（当前浏览器仅支持另存为）`);
+  e.target.value = "";
+});
+
+// 降级：下载保存
+function downloadCurrent() {
+  const blob = new Blob([currentContent], { type: "text/markdown;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = currentName.replace(/\.[^.]+$/, "") + ".md";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ── 渲染 ──────────────────────────────
+function renderAll() {
+  const html = marked.parse(currentContent)
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<iframe[\s\S]*?<\/iframe>/gi, "");
+  previewEl.innerHTML = html;
+  previewEl.querySelectorAll("pre code").forEach((el) => {
+    try { hljs.highlightElement(el); } catch (e) { /* 忽略 */ }
+  });
+  buildTocFromDom();
+  restructureSections();
+  onPreviewScroll();
+  updateStats();
+  renderEditPreview();
+}
+
+function updateStats() {
+  const lines = currentContent.split("\n").length;
+  const chars = currentContent.length;
+  const headings = Mdutils.parseHeadings(currentContent).length;
+  $("statFile").textContent = currentName;
+  $("statChars").textContent = chars + " 字符";
+  $("statLines").textContent = lines + " 行";
+  $("statHeadings").textContent = headings + " 标题";
+}
+
+function buildTocFromDom() {
+  const ul = $("tocList");
+  ul.innerHTML = "";
+  headingTexts.clear();
+  tocItems = [];
+  const hs = Array.from(previewEl.querySelectorAll("h1,h2,h3,h4,h5,h6"));
+  if (!hs.length) { ul.innerHTML = '<li class="toc-empty">（无标题）</li>'; return; }
+  hs.forEach((h, i) => { h.id = "sec-" + i; });
+  const stack = [];
+  hs.forEach((h, i) => {
+    const level = parseInt(h.tagName[1], 10);
+    const headingText = h.textContent;
+    headingTexts.set(h, headingText);
+
+    const editHover = document.createElement("button");
+    editHover.className = "heading-edit";
+    editHover.textContent = "🖊";
+    editHover.title = "编辑该区块";
+    editHover.addEventListener("click", () => openEditPanel(headingText));
+    h.appendChild(editHover);
+
+    const li = document.createElement("li");
+    const row = document.createElement("div");
+    row.className = "toc-row";
+    const badge = document.createElement("span");
+    badge.className = "toc-level";
+    badge.textContent = "H" + level;
+    const a = document.createElement("a");
+    a.textContent = headingText;
+    a.href = "#sec-" + i;
+    a.addEventListener("click", (e) => {
+      e.preventDefault();
+      document.getElementById("sec-" + i).scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    const actions = document.createElement("span");
+    actions.className = "toc-actions";
+    const eb = document.createElement("button");
+    eb.textContent = "✎";
+    eb.title = "编辑区块";
+    eb.addEventListener("click", () => openEditPanel(headingText));
+    const db = document.createElement("button");
+    db.textContent = "🗑";
+    db.className = "del";
+    db.title = "删除区块（保留标题行）";
+    db.addEventListener("click", () => deleteSectionUI(headingText));
+    actions.append(eb, db);
+    row.append(badge, a, actions);
+    li.appendChild(row);
+
+    while (stack.length && stack[stack.length - 1].level >= level) stack.pop();
+    if (stack.length) {
+      const parent = stack[stack.length - 1];
+      if (!parent.childUl) { parent.childUl = document.createElement("ul"); parent.li.appendChild(parent.childUl); }
+      parent.childUl.appendChild(li);
+    } else { ul.appendChild(li); }
+    stack.push({ level, li });
+    tocItems.push({ id: "sec-" + i, row });
+  });
+}
+
+function restructureSections() {
+  const nodes = Array.from(previewEl.childNodes);
+  previewEl.innerHTML = "";
+  let currentSec = null, currentText = "";
+  const addDivider = () => {
+    const div = document.createElement("div");
+    div.className = "sec-add";
+    const btn = document.createElement("button");
+    btn.textContent = "＋ 添加区块";
+    btn.title = "在此区块之后添加新区块";
+    btn.addEventListener("click", () => openEditPanel(currentText, { mode: "add", anchor: currentText }));
+    div.appendChild(btn);
+    previewEl.appendChild(div);
+  };
+  nodes.forEach((node) => {
+    if (node.nodeType === 1 && /^H[1-6]$/.test(node.tagName)) {
+      if (currentSec) addDivider();
+      currentSec = document.createElement("div");
+      currentSec.className = "sec";
+      previewEl.appendChild(currentSec);
+      currentText = headingTexts.get(node) || node.textContent.replace(/\s+/g, " ").trim();
+      currentSec.appendChild(node);
+    } else if (currentSec) { currentSec.appendChild(node); }
+    else { previewEl.appendChild(node); }
+  });
+  if (currentSec) addDivider();
+}
+
+function onPreviewScroll() {
+  if (!tocItems.length) return;
+  const MARK = 90;
+  let active = 0;
+  for (let k = 0; k < tocItems.length; k++) {
+    const el = document.getElementById(tocItems[k].id);
+    if (!el) break;
+    if (el.getBoundingClientRect().top <= MARK) active = k;
+    else break;
+  }
+  tocItems.forEach((item, k) => item.row.classList.toggle("active", k === active));
+  tocItems[active].row.scrollIntoView({ block: "nearest" });
+}
+previewEl.addEventListener("scroll", onPreviewScroll, { passive: true });
+
+// ── 内容应用（编辑/撤销/还原共用） ──────
+function applyContent(text) {
+  currentContent = text;
+  renderAll();
+}
+
+function pushUndo() {
+  undoStack.push(currentContent);
+  if (undoStack.length > 20) undoStack.shift();
+  redoStack = [];
+  updateUndoRedo();
+}
+
+function updateUndoRedo() {
+  $("undoBtn").disabled = undoStack.length === 0;
+  $("redoBtn").disabled = redoStack.length === 0;
+}
+
+function undoLast() {
+  if (!undoStack.length) return;
+  redoStack.push(currentContent);
+  applyContent(undoStack.pop());
+  updateUndoRedo();
+  setStatus("↩ 已撤销");
+}
+
+function redoLast() {
+  if (!redoStack.length) return;
+  undoStack.push(currentContent);
+  applyContent(redoStack.pop());
+  updateUndoRedo();
+  setStatus("↪ 已还原");
+}
+
+// 编辑后：内存更新 + 自动写回文件（有句柄时）
+async function commitEdit(newText) {
+  pushUndo();
+  applyContent(newText);
+  if (currentHandle) {
+    try { await writeHandle(currentHandle, currentContent); setStatus(`✓ 已保存 · ${currentName}`); }
+    catch (err) { alert("自动保存失败: " + err.message); }
+  } else {
+    setStatus("✎ 已修改（未关联文件，请保存/另存为）");
+  }
+}
+
+// ── 编辑面板 ──────────────────────────
+const editPanel = $("editPanel");
+const editorText = $("editorText");
+
+function openEditPanel(heading, opts = {}) {
+  const mode = opts.mode || "replace";
+  const anchor = opts.anchor || heading;
+  currentEditHeading = heading;
+  editAnchor = anchor;
+  $("editHeadingLabel").textContent = mode === "add" ? `在「${anchor}」之后添加` : heading;
+  editorText.value = mode === "add"
+    ? "## 新标题\n\n新内容"
+    : Mdutils.extractSection(currentContent, heading);
+  setEditorMode(mode);
+  editPanel.classList.remove("hidden");
+  renderEditPreview();
+  editorText.focus();
+}
+
+function closeEditPanel() { editPanel.classList.add("hidden"); }
+
+function setEditorMode(mode) {
+  editorMode = mode;
+  $("modeReplace").classList.toggle("active", mode === "replace");
+  $("modeInsert").classList.toggle("active", mode === "insert");
+  $("modeAdd").classList.toggle("active", mode === "add");
+  $("editHint").textContent = mode === "replace" ? "替换 = 覆盖该标题下的内容"
+    : mode === "insert" ? "插入 = 在标题行后追加（不触碰原有内容）"
+    : "添加 = 在此区块之后插入新区块，首行写标题";
+}
+
+function renderEditPreview() {
+  const el = $("editPreview");
+  const html = marked.parse(editorText.value)
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<iframe[\s\S]*?<\/iframe>/gi, "");
+  el.innerHTML = html;
+  el.querySelectorAll("pre code").forEach((c) => { try { hljs.highlightElement(c); } catch (e) { /* 忽略 */ } });
+}
+
+let previewTimer = null;
+editorText.addEventListener("input", () => {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(renderEditPreview, 250);
+});
+
+function parseNewSection(text) {
+  const lines = text.replace(/\r/g, "").split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/^(#{1,6})\s+(.+?)(?:\s+#*)?$/);
+    if (m) return { heading: m[2].trim(), content: lines.slice(i + 1).join("\n").trim() };
+  }
+  const first = lines[0] ? lines[0].trim() : "";
+  return { heading: first || "新标题", content: lines.slice(1).join("\n").trim() };
+}
+
+async function saveEdit() {
+  if (!currentEditHeading) return;
+  try {
+    if (editorMode === "add") {
+      const { heading, content } = parseNewSection(editorText.value);
+      if (!heading) { alert("请填写新标题"); return; }
+      await commitEdit(Mdutils.insertSectionAfter(currentContent, editAnchor, heading, content));
+    } else if (editorMode === "replace") {
+      await commitEdit(Mdutils.replaceSection(currentContent, currentEditHeading, editorText.value));
+    } else {
+      await commitEdit(Mdutils.insertAfterHeading(currentContent, currentEditHeading, editorText.value));
+    }
+    closeEditPanel();
+  } catch (err) {
+    alert("保存失败: " + err.message);
+  }
+}
+
+async function deleteSectionUI(heading) {
+  if (!heading) return;
+  if (!confirm(`删除区块「${heading}」的内容？（标题行保留）`)) return;
+  try {
+    await commitEdit(Mdutils.deleteSection(currentContent, heading));
+    closeEditPanel();
+  } catch (err) {
+    alert("删除失败: " + err.message);
+  }
+}
+
+// ── 插入菜单 ──────────────────────────
+const insertMenu = $("insertMenu");
+
+function insertWrap(before, after, placeholder = "文本") {
+  const ta = editorText, s = ta.selectionStart, e = ta.selectionEnd;
+  const inner = ta.value.slice(s, e) || placeholder;
+  ta.value = ta.value.slice(0, s) + before + inner + after + ta.value.slice(e);
+  ta.selectionStart = s + before.length;
+  ta.selectionEnd = s + before.length + inner.length;
+}
+function insertLinePrefix(prefix) {
+  const ta = editorText, pos = ta.selectionStart;
+  const ls = ta.value.lastIndexOf("\n", pos - 1) + 1;
+  ta.value = ta.value.slice(0, ls) + prefix + ta.value.slice(ls);
+  ta.selectionStart = ta.selectionEnd = ls + prefix.length;
+}
+function insertBlockCode() {
+  const ta = editorText, s = ta.selectionStart, e = ta.selectionEnd;
+  const code = ta.value.slice(s, e) || "代码";
+  const block = "```python\n" + code + "\n```";
+  ta.value = ta.value.slice(0, s) + block + ta.value.slice(e);
+  ta.selectionStart = s + 10; ta.selectionEnd = s + 10 + code.length;
+}
+function insertTable() {
+  const block = "| 列1 | 列2 | 列3 |\n| --- | --- | --- |\n| 值1 | 值2 | 值3 |\n";
+  const ta = editorText, s = ta.selectionStart;
+  ta.value = ta.value.slice(0, s) + block + ta.value.slice(s);
+  ta.selectionStart = ta.selectionEnd = s;
+}
+function insertHr() {
+  const ta = editorText, pos = ta.selectionStart;
+  const ls = ta.value.lastIndexOf("\n", pos - 1) + 1;
+  const prefix = ta.value.slice(0, ls).replace(/\n$/, "");
+  ta.value = prefix + "\n---\n\n" + ta.value.slice(ls);
+  ta.selectionStart = ta.selectionEnd = prefix.length + 5;
+}
+function insertToc() {
+  const ta = editorText;
+  const out = ["## 目录", ""];
+  Mdutils.parseHeadings(ta.value).forEach((h) => {
+    out.push("  ".repeat(h.level - 1) + "- " + h.title);
+  });
+  const block = out.join("\n") + "\n";
+  const s = ta.selectionStart;
+  ta.value = ta.value.slice(0, s) + block + ta.value.slice(ta.selectionEnd);
+  ta.selectionStart = ta.selectionEnd = s + block.length;
+  ta.focus();
+}
+
+// ── 事件 ──────────────────────────────
+$("fileBtn").addEventListener("click", (e) => { e.stopPropagation(); fileMenu.classList.toggle("show"); });
+document.addEventListener("click", () => fileMenu.classList.remove("show"));
+$("fileMenu").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-act]");
+  if (!b || b.disabled) return;
+  fileMenu.classList.remove("show");
+  switch (b.dataset.act) {
+    case "open":
+      if (hasFSA) openFileViaPicker(); else $("fileInput").click();
+      break;
+    case "folder": openFolder(); break;
+    case "new": newFile(); break;
+    case "save": hasFSA ? saveCurrent() : downloadCurrent(); break;
+    case "saveas": hasFSA ? saveAs() : downloadCurrent(); break;
+    case "demo": loadDemo(); break;
+  }
+});
+$("dirClose").addEventListener("click", () => dirOverlay.classList.remove("show"));
+dirOverlay.addEventListener("click", (e) => { if (e.target === dirOverlay) dirOverlay.classList.remove("show"); });
+
+$("editClose").addEventListener("click", closeEditPanel);
+$("editCancel").addEventListener("click", closeEditPanel);
+$("editSave").addEventListener("click", saveEdit);
+$("editDelete").addEventListener("click", () => deleteSectionUI(currentEditHeading));
+$("modeReplace").addEventListener("click", () => setEditorMode("replace"));
+$("modeInsert").addEventListener("click", () => setEditorMode("insert"));
+$("modeAdd").addEventListener("click", () => setEditorMode("add"));
+$("undoBtn").addEventListener("click", undoLast);
+$("redoBtn").addEventListener("click", redoLast);
+
+$("insertBtn").addEventListener("click", (e) => { e.stopPropagation(); insertMenu.classList.toggle("show"); });
+insertMenu.addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-insert]");
+  if (!b) return;
+  switch (b.dataset.insert) {
+    case "h1": insertLinePrefix("# "); break;
+    case "h2": insertLinePrefix("## "); break;
+    case "h3": insertLinePrefix("### "); break;
+    case "h4": insertLinePrefix("#### "); break;
+    case "bold": insertWrap("**", "**"); break;
+    case "italic": insertWrap("*", "*"); break;
+    case "strike": insertWrap("~~", "~~"); break;
+    case "inline-code": insertWrap("`", "`", "code"); break;
+    case "quote": insertLinePrefix("> "); break;
+    case "ul": insertLinePrefix("- "); break;
+    case "ol": insertLinePrefix("1. "); break;
+    case "task": insertLinePrefix("- [ ] "); break;
+    case "link": insertWrap("[", "](https://)", "文本"); break;
+    case "image": insertWrap("![描述](", ")", "图片地址"); break;
+    case "code": insertBlockCode(); break;
+    case "table": insertTable(); break;
+    case "hr": insertHr(); break;
+    case "toc": insertToc(); break;
+  }
+  renderEditPreview();
+  insertMenu.classList.remove("show");
+  editorText.focus();
+});
+
+editorText.addEventListener("keydown", (e) => {
+  if (e.key === "Tab") {
+    e.preventDefault();
+    const s = editorText.selectionStart, t = editorText.selectionEnd;
+    editorText.value = editorText.value.slice(0, s) + "  " + editorText.value.slice(t);
+    editorText.selectionStart = editorText.selectionEnd = s + 2;
+  }
+});
+
+document.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+    e.preventDefault();
+    if (hasFSA) saveCurrent(); else downloadCurrent();
+  }
+  if (e.key === "Escape") {
+    closeEditPanel();
+    [dirOverlay].forEach((o) => o.classList.remove("show"));
+    insertMenu.classList.remove("show");
+    fileMenu.classList.remove("show");
+  }
+});
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+// ── 演示文档 ──────────────────────────
+const FALLBACK_DEMO = "# mdutils 本地版演示\n\n这是内置的演示文档（离线可用）。\n\n## 功能\n\n- 文件 ▾ → 打开文件…：选择本机 .md，可编辑并**保存回原文件**\n- 打开文件夹…：浏览文件夹内所有 Markdown\n- 悬停预览标题：🖊 编辑 / 目录行 ✎ 🗑\n- 右侧面板：替换 / 插入 / 添加区块，实时预览\n- ↩ 撤销 / ↪ 还原：纯本地，最多 20 步\n\n## 支持环境\n\n> Chrome / Edge 完整支持；其他浏览器仅支持打开 + 另存为下载。\n\n| 功能 | Chrome/Edge | 其他 |\n| --- | --- | --- |\n| 打开文件 | ✅ | ✅ |\n| 保存回原文件 | ✅ | ❌（另存为） |\n| 打开文件夹 | ✅ | ❌ |\n\n## 代码示例\n\n```python\ndef greet(name):\n    return f\"你好, {name}!\"\n```\n";
+
+async function loadDemo() {
+  let text = FALLBACK_DEMO;
+  try {
+    const resp = await fetch("./demo.md");
+    if (resp.ok) text = await resp.text();
+  } catch (e) { /* 离线环境使用内置演示 */ }
+  currentHandle = null;
+  currentContent = text;
+  fileEncoding = "utf-8";
+  currentName = "演示文档.md";
+  undoStack = []; redoStack = [];
+  updateUndoRedo();
+  renderAll();
+  setStatus("演示文档（编辑仅保存在内存，可另存为）");
+}
+
+loadDemo();
+</script>
+</body>
+</html>
