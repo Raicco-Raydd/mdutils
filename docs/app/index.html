@@ -322,6 +322,82 @@
   ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
   ::-webkit-scrollbar-thumb:hover { background: var(--accent-dim); }
+
+  /* ── 移动端适配（≤768px：单栏 + 抽屉 + 全屏面板） ── */
+  .toc-drawer-btn, .toc-backdrop { display: none; }
+  @media (max-width: 768px) {
+    header {
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      padding: 8px 10px;
+    }
+    .brand span { display: none; }
+    .header-left { gap: 8px; }
+    .status-box {
+      grid-column: 1 / -1;
+      justify-self: stretch;
+      justify-content: center;
+      padding: 3px 8px;
+    }
+    .status-box .stat-file { max-width: 110px; }
+    .header-right { gap: 6px; }
+    .msg { display: none; }
+    button { padding: 6px 10px; font-size: 12px; }
+    .menu { min-width: 170px; }
+
+    /* 目录抽屉 */
+    .toc-drawer-btn {
+      display: block;
+      position: fixed;
+      left: 10px;
+      bottom: 16px;
+      z-index: 40;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      font-size: 18px;
+      padding: 0;
+      box-shadow: 0 4px 14px rgba(0,0,0,.5);
+    }
+    .toc-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 44;
+      background: rgba(0,0,0,.5);
+    }
+    .toc-backdrop.show { display: block; }
+    aside {
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      z-index: 45;
+      width: min(78vw, 300px);
+      transform: translateX(-100%);
+      transition: transform .25s ease;
+      box-shadow: 4px 0 20px rgba(0,0,0,.4);
+    }
+    aside.show { transform: translateX(0); }
+
+    article {
+      margin: 0 12px 40px;
+      padding: 24px 16px 60px;
+      max-width: none;
+    }
+
+    /* 编辑面板全屏 */
+    .edit-panel {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      width: 100%;
+      border-left: none;
+      border-top: 1px solid var(--border);
+    }
+    .insert-menu { width: calc(100vw - 28px); }
+    .browser { width: 94vw; max-height: 86vh; }
+    .banner { padding: 6px 36px 6px 12px; font-size: 11px; }
+  }
 </style>
 </head>
 <body>
@@ -366,7 +442,9 @@
 </div>
 
 <main>
-  <aside>
+  <button type="button" id="tocDrawerBtn" class="toc-drawer-btn" title="文档目录">☰</button>
+  <div class="toc-backdrop" id="tocBackdrop"></div>
+  <aside id="tocAside">
     <div class="toc-title">文档结构（悬停行显示操作）</div>
     <ul id="tocList"><li class="toc-empty">未打开文件</li></ul>
   </aside>
@@ -1027,6 +1105,8 @@ document.addEventListener("keydown", (e) => {
     [dirOverlay, histOverlay].forEach((o) => o.classList.remove("show"));
     insertMenu.classList.remove("show");
     fileMenu.classList.remove("show");
+    tocAside.classList.remove("show");
+    tocBackdrop.classList.remove("show");
   }
 });
 
@@ -1303,6 +1383,28 @@ function tourOnScroll() {
 }
 
 $("tourBtn").addEventListener("click", startTour);
+
+// ── 移动端目录抽屉 ──
+const tocAside = $("tocAside");
+const tocDrawerBtn = $("tocDrawerBtn");
+const tocBackdrop = $("tocBackdrop");
+
+function isMobile() { return window.matchMedia("(max-width: 768px)").matches; }
+
+tocDrawerBtn.addEventListener("click", () => {
+  tocAside.classList.toggle("show");
+  tocBackdrop.classList.toggle("show");
+});
+tocBackdrop.addEventListener("click", () => {
+  tocAside.classList.remove("show");
+  tocBackdrop.classList.remove("show");
+});
+window.addEventListener("resize", () => {
+  if (!isMobile()) {
+    tocAside.classList.remove("show");
+    tocBackdrop.classList.remove("show");
+  }
+});
 
 // ── 演示文档 ──────────────────────────
 const FALLBACK_DEMO = "# mdutils 本地版演示\n\n这是内置的演示文档（离线可用）。\n\n## 功能\n\n- 文件 ▾ → 打开文件…：选择本机 .md，可编辑并**保存回原文件**\n- 打开文件夹…：浏览文件夹内所有 Markdown\n- 悬停预览标题：🖊 编辑 / 目录行 ✎ 🗑\n- 右侧面板：替换 / 插入 / 添加区块，实时预览\n- ↩ 撤销 / ↪ 还原：纯本地，最多 20 步\n\n## 支持环境\n\n> Chrome / Edge 完整支持；其他浏览器仅支持打开 + 另存为下载。\n\n| 功能 | Chrome/Edge | 其他 |\n| --- | --- | --- |\n| 打开文件 | ✅ | ✅ |\n| 保存回原文件 | ✅ | ❌（另存为） |\n| 打开文件夹 | ✅ | ❌ |\n\n## 代码示例\n\n```python\ndef greet(name):\n    return f\"你好, {name}!\"\n```\n";

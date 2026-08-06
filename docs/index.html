@@ -202,6 +202,48 @@
   ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
   ::-webkit-scrollbar-thumb:hover { background: var(--accent-dim); }
+
+  /* ── 移动端适配 ── */
+  .toc-drawer-btn, .toc-backdrop { display: none; }
+  @media (max-width: 768px) {
+    header { gap: 8px; padding: 8px 10px; }
+    .brand span { display: none; }
+    button { padding: 6px 10px; font-size: 12px; }
+    .toc-drawer-btn {
+      display: block;
+      position: fixed;
+      left: 10px;
+      bottom: 16px;
+      z-index: 40;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      font-size: 18px;
+      padding: 0;
+      box-shadow: 0 4px 14px rgba(0,0,0,.5);
+    }
+    .toc-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 44;
+      background: rgba(0,0,0,.5);
+    }
+    .toc-backdrop.show { display: block; }
+    aside {
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      z-index: 45;
+      width: min(78vw, 300px);
+      transform: translateX(-100%);
+      transition: transform .25s ease;
+      box-shadow: 4px 0 20px rgba(0,0,0,.4);
+    }
+    aside.show { transform: translateX(0); }
+    article { margin: 0 12px 40px; padding: 24px 16px 60px; max-width: none; }
+    .banner { padding: 6px 36px 6px 12px; font-size: 11px; }
+  }
 </style>
 </head>
 <body>
@@ -220,7 +262,9 @@
 </div>
 
 <main>
-  <aside>
+  <button type="button" id="tocDrawerBtn" class="toc-drawer-btn" title="文档目录">☰</button>
+  <div class="toc-backdrop" id="tocBackdrop"></div>
+  <aside id="tocAside">
     <div class="toc-title">文档结构</div>
     <ul id="tocList"><li class="toc-empty">加载中…</li></ul>
   </aside>
@@ -313,6 +357,28 @@ async function loadDemo() {
     previewEl.innerHTML = `<div class="placeholder">❌ 演示文档加载失败：${err.message}</div>`;
   }
 }
+
+// ── 移动端目录抽屉 ──
+const tocAside = $("tocAside");
+const tocDrawerBtn = $("tocDrawerBtn");
+const tocBackdrop = $("tocBackdrop");
+
+function isMobile() { return window.matchMedia("(max-width: 768px)").matches; }
+
+tocDrawerBtn.addEventListener("click", () => {
+  tocAside.classList.toggle("show");
+  tocBackdrop.classList.toggle("show");
+});
+tocBackdrop.addEventListener("click", () => {
+  tocAside.classList.remove("show");
+  tocBackdrop.classList.remove("show");
+});
+window.addEventListener("resize", () => {
+  if (!isMobile()) {
+    tocAside.classList.remove("show");
+    tocBackdrop.classList.remove("show");
+  }
+});
 
 $("loadDemoBtn").addEventListener("click", loadDemo);
 
