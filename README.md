@@ -1,15 +1,23 @@
 # mdutils
 
-![mdutils logo](properties/Mdutils.png)
+![mdutils logo](properties/mdutils_dark_theme.png)
 
-Markdown 文档工具箱 — 专为 AI Agent 工作流设计。
+Markdown 文档工具箱 —— 专为 AI Agent 工作流设计，解析 / 编辑 / 生成 Markdown 结构，CLI 与 Python API 双形态。
 
-> **v2.1.0** 🎉 重大更新：新增 **Web UI**（预览 + 结构化编辑），详见下方「🌐 Web UI」章节。
+> **v2.2.0** 🎉 全新 **日间 / 夜间 / 跟随系统主题切换**（Web 界面），双主题品牌图标（dark / light），线上 WebApp 部署于 Netlify。详见下方「Web 界面」章节。
+
+## ✨ 功能速览
+
+- **解析**：标题层级、区块、代码块、表格、YAML 前置元信息
+- **编辑**：替换 / 删除 / 插入区块，标题后插入，**区块后插入新区块（级别继承锚点）**
+- **生成**：表格、列表、代码块、链接、标题等 Markdown 元素
+- **CLI 工具**：管道输入、`read` 子命令、批量搜索、写入文件
+- **Web 界面**：本地 FastAPI（Web UI）+ 纯前端 WebApp（可离线、可部署），**三态主题切换**
 
 ## 🚀 30 秒快速上手
 
 ```bash
-# CLI 版 — 查看文档结构
+# CLI 版 —— 查看文档结构
 mdutils read MEMORY.md headings
 mdutils read README.md extract-section "功能模块"
 mdutils generate table "姓名,分数" "张三,95" "李四,88"
@@ -24,11 +32,25 @@ from mdutils.generator import table
 | 模块 | 功能 |
 |:---|:---|
 | `parser` | 解析 Markdown 结构（标题、区块、代码块、表格） |
-| `editor` | 编辑 Markdown 文档（替换、删除、插入区块、**区块后插入新块**） |
+| `editor` | 编辑 Markdown 文档（替换、删除、插入区块、**区块后插入新区块**） |
 | `generator` | 生成 Markdown 元素（表格、列表、代码块、链接等） |
 | `utils` | 文件读写、批量搜索等辅助工具 |
 
-## 🌐 Web UI（v2.0+）
+## 🌐 Web 界面
+
+mdutils 提供两套 Web 界面，共用同一套渲染/编辑引擎：
+
+### ① WebApp（纯前端版，v2.2.0 推荐）
+
+零后端、零依赖的单文件应用，支持 **File System Access API**（Chrome / Edge 可直接读写本地文件）：
+
+- 🌐 **线上版**：<https://mdutils.netlify.app/>
+- 💻 **本地版**：`MdutilsWebApp/` 目录直接打开 `index.html` 即可
+- 🎨 **主题切换**：🖥 跟随系统 / ☀️ 日间 / 🌙 夜间 三态循环，localStorage 持久化，防闪烁预载
+- 🔖 **双主题 favicon**：日间用 light 图标、夜间用 dark 图标，随主题实时切换
+- ✏️ 结构化编辑（替换 / 插入 / 添加区块）、历史记录、撤销栈、功能引导
+
+### ② Web UI（本地 FastAPI 版）
 
 本地浏览器界面：**左目录树 + 右预览**，支持按区块结构化编辑。
 
@@ -39,14 +61,14 @@ py -m uvicorn app:app --host 127.0.0.1 --port 8765
 # 浏览器打开 http://127.0.0.1:8765
 ```
 
-功能：实时渲染预览、目录树（引导线+级别徽标+滚动跟随）、区块编辑（替换/插入/**添加新区块**）、删除、YAML 元信息、20 步撤销、文件目录浏览、最近历史、蒙版式新手指引。
+功能：实时渲染预览、目录树（引导线+级别徽标+滚动跟随）、区块编辑（替换/插入/**添加新区块**）、删除、YAML 元信息、20 步撤销、文件目录浏览、最近历史、蒙版式新手引导、**三态主题切换**。
 
 ## CLI 命令行工具
 
 安装后可直接通过终端调用 `mdutils` 命令：
 
 ```bash
-# 从 stdin 管道输入 Markdown 文本
+# 从 stdin 管道输入 Markdown 文本文本
 type MEMORY.md | mdutils headings
 type MEMORY.md | mdutils extract-section "核心身份"
 type MEMORY.md | mdutils replace-section "旧标题" "新内容"
@@ -59,7 +81,7 @@ mdutils read README.md extract-section "功能模块"
 # 文件搜索与写入
 mdutils find .
 mdutils find ./docs --no-recursive
-mdutils write output.md "# 新文档\n\n正文内容"
+mdutils write output.md "# 新文档\n正文内容"
 
 # 生成 Markdown 元素
 mdutils generate heading "文档标题" 1
@@ -136,7 +158,7 @@ new_doc = insert_after_heading(text, "安装说明", "1. 首先 pip install")
 # 在指定区块之后插入新区块（新标题级别继承锚点）
 new_doc = insert_section_after(text, "项目简介", "开发计划", "- 阶段一\n- 阶段二")
 
-# 更新或创建 YAML 前置元
+# 更新或创建 YAML 前置元信息
 new_doc = update_frontmatter(text, "author", "张三")
 ```
 
@@ -182,9 +204,9 @@ lesson5/
 └── README.md           # 项目说明
 ```
 
-## ⚠️ 常见问题
+## 📌 常见问题
 
-**Q: Windows 下管道输中文乱码怎么办？**
+**Q: Windows 下管道输入中文乱码怎么办？**
 
 PowerShell 的默认 `$OutputEncoding` 可能不支持中文。建议：
 - **改用 `mdutils read` 子命令**读取文件（自动处理编码）
@@ -196,7 +218,7 @@ PowerShell 的默认 `$OutputEncoding` 可能不支持中文。建议：
 
 **Q: `replace-section` 没生效？**
 
-命令会检查标题是否存在。如果标题没找到，会显示 `❌ 操作无效：未找到标题`。请核对标题文本是否完全一致。
+命令会检查标题是否存在。如果标题没找到，会显示 `⚠️ 操作无效：未找到标题`。请核对标题文本是否完全一致。
 
 **Q: 表格行列数对不上？**
 
