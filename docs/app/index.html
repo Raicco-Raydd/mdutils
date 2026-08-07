@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/png" href="./Mdutils.png">
+<link rel="icon" type="image/png" id="themeFavicon" href="./mdutils_dark_theme.png">
 <title>mdutils · 本地网页版</title>
 <script>
 /* 主题预载：打开/刷新时先应用已保存主题，防止闪烁（FOUC） */
@@ -11,6 +11,11 @@
   try {
     var t = localStorage.getItem("mdutils_theme");
     if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+    var fav = document.getElementById("themeFavicon");
+    if (fav) {
+      var light = t === "light" || (!t && window.matchMedia("(prefers-color-scheme: light)").matches);
+      fav.href = light ? "./mdutils_light_theme.png" : "./mdutils_dark_theme.png";
+    }
   } catch (e) { /* 忽略 */ }
 })();
 </script>
@@ -621,6 +626,13 @@ const THEME_MODES = [
 ];
 let themeIdx = 0;
 const themeBtn = $("themeBtn");
+const themeFav = $("themeFavicon");
+
+function syncFavicon(key) {
+  if (!themeFav) return;
+  const light = key === "light" || (key === "auto" && window.matchMedia("(prefers-color-scheme: light)").matches);
+  themeFav.href = light ? "./mdutils_light_theme.png" : "./mdutils_dark_theme.png";
+}
 
 function applyTheme(idx, persist) {
   idx = ((idx % THEME_MODES.length) + THEME_MODES.length) % THEME_MODES.length;
@@ -631,6 +643,7 @@ function applyTheme(idx, persist) {
   if (persist) { try { localStorage.setItem("mdutils_theme", m.key); } catch (e) { /* 忽略 */ } }
   themeBtn.innerHTML = m.icon + '<span class="lbl"> ' + m.label + "</span>";
   themeBtn.title = "主题：" + m.label + "（点击切换）";
+  syncFavicon(m.key);
 }
 
 (function themeInit() {
@@ -639,6 +652,12 @@ function applyTheme(idx, persist) {
   const idx = THEME_MODES.findIndex((m) => m.key === cur);
   applyTheme(idx < 0 ? 0 : idx, false);
   themeBtn.addEventListener("click", () => applyTheme(themeIdx + 1, true));
+  // 跟随系统模式：系统深浅变化时同步 favicon
+  try {
+    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+      if (THEME_MODES[themeIdx].key === "auto") syncFavicon("auto");
+    });
+  } catch (e) { /* 忽略 */ }
 })();
 
 // ── 状态 ──────────────────────────────
