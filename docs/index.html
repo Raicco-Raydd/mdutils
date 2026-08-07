@@ -278,6 +278,7 @@
 
 <script src="./marked.min.js"></script>
 <script src="./highlight.min.js"></script>
+<script src="./app/mdutils.js"></script>
 <script>
 "use strict";
 
@@ -292,9 +293,7 @@ $("bannerClose").addEventListener("click", () => {
 if (localStorage.getItem("mdutils_banner_closed")) $("banner").style.display = "none";
 
 function renderMarkdown(text, name) {
-  const html = marked.parse(text)
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<iframe[\s\S]*?<\/iframe>/gi, "");
+  const html = Mdutils.sanitizeHtml(marked.parse(text));
   previewEl.innerHTML = html;
   previewEl.querySelectorAll("pre code").forEach((el) => {
     try { hljs.highlightElement(el); } catch (e) { /* 忽略 */ }
