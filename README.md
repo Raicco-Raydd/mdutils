@@ -1,6 +1,6 @@
 # mdutils
 
-![mdutils logo](properties/mdutils_dark_theme.png)
+![mdutils logo](design/mdutils_dark_theme.png)
 
 Markdown 文档工具箱 —— 专为 AI Agent 工作流设计，解析 / 编辑 / 生成 Markdown 结构，CLI 与 Python API 双形态。
 
