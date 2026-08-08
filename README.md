@@ -4,7 +4,7 @@
 
 Markdown 文档工具箱 —— 专为 AI Agent 工作流设计，解析 / 编辑 / 生成 Markdown 结构，CLI 与 Python API 双形态。
 
-> **v2.2.0** 🎉 全新 **日间 / 夜间 / 跟随系统主题切换**（Web 界面），双主题品牌图标（dark / light），线上 WebApp 部署于 Netlify。详见下方「Web 界面」章节。
+> **v2.3.0** 🎉 Web 编辑器新增 **Vim / Emacs 键位模式**，新手引导完成移动端适配；v2.2.0 上线全新 **日间 / 夜间 / 跟随系统主题切换**（Web 界面），双主题品牌图标（dark / light），线上 WebApp 部署于 Netlify。详见下方「Web 界面」章节。
 
 ## ✨ 功能速览
 
@@ -40,7 +40,7 @@ from mdutils.generator import table
 
 mdutils 提供两套 Web 界面，共用同一套渲染/编辑引擎：
 
-### ① WebApp（纯前端版，v2.2.0 推荐）
+### ① WebApp（纯前端版，v2.3.0 推荐）
 
 零后端、零依赖的单文件应用，支持 **File System Access API**（Chrome / Edge 可直接读写本地文件）：
 

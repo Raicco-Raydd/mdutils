@@ -288,6 +288,28 @@
   .editor-mode { display: flex; gap: 8px; padding: 10px 14px 0; }
   .editor-mode button { background: transparent; color: var(--text-dim); border: 1px solid var(--border); font-weight: 400; padding: 5px 12px; border-radius: 6px; font-size: 12px; }
   .editor-mode button.active { background: var(--accent-dim); color: #05120f; border-color: var(--accent-dim); font-weight: 600; }
+  /* 键位模式切换（普通 / Vim / Emacs） */
+  .key-mode { display: flex; align-items: center; gap: 6px; padding: 8px 14px 0; }
+  .key-mode .key-mode-label { font-size: 11px; color: var(--text-dim); margin-right: 2px; letter-spacing: 1px; }
+  .key-mode button {
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .key-mode button.active {
+    background: var(--accent-dim);
+    color: #05120f;
+    border-color: var(--accent-dim);
+    font-weight: 600;
+  }
+  /* 编辑模式边框指示：Vim 青 / Vim-插入 绿 / Emacs 黄 */
+  #editorText[data-kmmode="vim"] { border-color: var(--accent); }
+  #editorText[data-kmmode="vim"][data-kmind="VIM-INSERT"] { border-color: #7fb069; }
+  #editorText[data-kmmode="emacs"] { border-color: #e2b93d; }
   .editor-toolbar { position: relative; display: flex; gap: 8px; padding: 10px 14px 0; }
   .editor-toolbar button { background: transparent; color: var(--text-dim); border: 1px solid var(--border); font-weight: 400; padding: 5px 12px; border-radius: 6px; font-size: 12px; }
   .editor-toolbar button:hover { color: var(--accent); border-color: var(--accent-dim); background: var(--panel-2); }
@@ -389,6 +411,34 @@
   .tour-dots { flex: 1; min-width: 0; overflow: hidden; display: flex; gap: 3px; justify-content: center; }
   .tour-dots .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--border); flex: none; }
   .tour-dots .dot.active { background: var(--accent); }
+
+  /* 指示箭头（默认隐藏，移动端显示） */
+  .tour-arrow {
+    display: none;
+    position: absolute;
+    top: -7px;
+    width: 0;
+    height: 0;
+    border-left: 7px solid transparent;
+    border-right: 7px solid transparent;
+    border-bottom: 7px solid var(--panel);
+    filter: drop-shadow(0 -1px 0 var(--accent-dim));
+  }
+
+  /* 移动端引导：卡片固定底部横条，箭头指向高亮 */
+  @media (max-width: 768px) {
+    .tour-card {
+      left: 10px !important;
+      right: 10px !important;
+      top: auto !important;
+      bottom: 12px !important;
+      width: auto !important;
+      max-height: 44vh;
+      overflow-y: auto;
+    }
+    .tour-card .tour-arrow { display: block; }
+    .tour-nav button { min-height: 40px; }
+  }
 
   ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
@@ -537,6 +587,12 @@
       <button type="button" id="modeReplace" class="active">替换区块内容</button>
       <button type="button" id="modeInsert">标题后插入</button>
       <button type="button" id="modeAdd">＋ 添加区块</button>
+    </div>
+    <div class="key-mode">
+      <span class="key-mode-label">键位</span>
+      <button type="button" id="kmNormal" class="active">普通</button>
+      <button type="button" id="kmVim" title="Vim：j/k/h/l 移动，i/a/o 插入，dd 删行，u 撤销，Esc 切换">Vim</button>
+      <button type="button" id="kmEmacs" title="Emacs：C-f/b/n/p 移动，C-a/e 行首尾，C-k 删至行尾">Emacs</button>
     </div>
     <div class="editor-toolbar">
       <button type="button" id="insertBtn" class="ghost">⨁ 插入 ▾</button>
@@ -1207,13 +1263,168 @@ insertMenu.addEventListener("click", (e) => {
   editorText.focus();
 });
 
+// ══ Vim / Emacs 键位模式（轻量版）════════════
+let keyMode = "normal";   // normal | vim | emacs
+let vimState = "normal";  // vim 内部：normal | insert
+let vimPending = "";      // 双键前缀（d / y / g）
+let vimReg = "";          // 寄存器（yy 复制行）
+let vimUndo = [];          // vim 内部撤销栈（20 层）
+
+function kmSetMode(mode) {
+  keyMode = mode;
+  vimState = "normal";
+  vimPending = "";
+  kmUpdateInd();
+  $("kmNormal").classList.toggle("active", mode === "normal");
+  $("kmVim").classList.toggle("active", mode === "vim");
+  $("kmEmacs").classList.toggle("active", mode === "emacs");
+}
+function kmUpdateInd() {
+  editorText.dataset.kmind = keyMode === "vim"
+    ? (vimState === "insert" ? "VIM-INSERT" : "VIM-NORMAL")
+    : keyMode === "emacs" ? "EMACS" : "";
+}
+$("kmNormal").addEventListener("click", () => kmSetMode("normal"));
+$("kmVim").addEventListener("click", () => kmSetMode("vim"));
+$("kmEmacs").addEventListener("click", () => kmSetMode("emacs"));
+
+// ── 光标 / 文本工具 ──
+function kmPos() { return editorText.selectionStart; }
+function kmSetPos(p) {
+  p = Math.max(0, Math.min(editorText.value.length, p));
+  editorText.selectionStart = editorText.selectionEnd = p;
+}
+function kmLineInfo(pos) {
+  const val = editorText.value, lines = val.split("\n");
+  let line = 0, lineStart = 0;
+  for (let i = 0; i < lines.length; i++) {
+    if (pos <= lineStart + lines[i].length) { line = i; break; }
+    lineStart += lines[i].length + 1;
+  }
+  return { line, col: pos - lineStart, lineStart, lineText: lines[line], lines };
+}
+function kmMoveVert(d) {
+  const { line, col, lines } = kmLineInfo(kmPos());
+  const nl = Math.max(0, Math.min(lines.length - 1, line + d));
+  let p = 0;
+  for (let i = 0; i < nl; i++) p += lines[i].length + 1;
+  kmSetPos(p + Math.min(col, lines[nl].length));
+}
+function kmMoveHoriz(d) { kmSetPos(kmPos() + d); }
+function kmHome() { kmSetPos(kmLineInfo(kmPos()).lineStart); }
+function kmEnd() { const i = kmLineInfo(kmPos()); kmSetPos(i.lineStart + i.lineText.length); }
+function kmDocStart() { kmSetPos(0); }
+function kmDocEnd() { kmSetPos(editorText.value.length); }
+function kmSync() { clearTimeout(previewTimer); renderEditPreview(); }
+function kmPushUndo() { vimUndo.push(editorText.value); if (vimUndo.length > 20) vimUndo.shift(); }
+function kmUndo() { if (!vimUndo.length) return; editorText.value = vimUndo.pop(); kmSetPos(0); kmSync(); }
+function kmDeleteChar() {
+  const p = kmPos();
+  if (p >= editorText.value.length) return;
+  editorText.value = editorText.value.slice(0, p) + editorText.value.slice(p + 1);
+  kmSetPos(p); kmSync();
+}
+function kmDeleteLine() {
+  const { line, lineStart, lineText, lines } = kmLineInfo(kmPos());
+  const val = editorText.value;
+  let newVal, np;
+  if (lines.length === 1) { newVal = ""; np = 0; }
+  else {
+    const end = lineStart + lineText.length + (line < lines.length - 1 ? 1 : 0);
+    newVal = val.slice(0, lineStart) + val.slice(end);
+    np = lineStart;
+  }
+  editorText.value = newVal; kmSetPos(np); kmSync();
+}
+function kmKillLine() { // emacs C-k：删到行尾
+  const { lineStart, lineText } = kmLineInfo(kmPos());
+  const p = kmPos();
+  const end = lineStart + lineText.length;
+  editorText.value = editorText.value.slice(0, p) + editorText.value.slice(end);
+  kmSetPos(p); kmSync();
+}
+function kmOpenLine(before) { // o / O
+  const { lineStart, lineText } = kmLineInfo(kmPos());
+  const p = lineStart + (before ? 0 : lineText.length);
+  editorText.value = editorText.value.slice(0, p) + "\n" + editorText.value.slice(p);
+  kmSetPos(p + (before ? 0 : 1)); kmSync();
+}
+function kmYankLine() { vimReg = kmLineInfo(kmPos()).lineText + "\n"; }
+function kmPaste() {
+  if (!vimReg) return;
+  const p = kmPos();
+  editorText.value = editorText.value.slice(0, p) + vimReg + editorText.value.slice(p);
+  kmSetPos(p + vimReg.length); kmSync();
+}
+
+// ── Vim ──
+function vimKeydown(e) {
+  if (vimState === "insert") {
+    if (e.key === "Escape") { vimState = "normal"; vimPending = ""; e.preventDefault(); kmUpdateInd(); }
+    return;
+  }
+  if (e.ctrlKey || e.metaKey || e.altKey) return; // 放行系统组合键
+  const k = e.key;
+  if (vimPending === "d") { vimPending = ""; if (k === "d") { kmPushUndo(); kmDeleteLine(); } e.preventDefault(); return; }
+  if (vimPending === "y") { vimPending = ""; if (k === "y") kmYankLine(); e.preventDefault(); return; }
+  if (vimPending === "g") { vimPending = ""; if (k === "g") kmDocStart(); else if (k === "G") kmDocEnd(); e.preventDefault(); return; }
+  switch (k) {
+    case "Escape": break;
+    case "h": kmMoveHoriz(-1); break;
+    case "l": kmMoveHoriz(1); break;
+    case "j": kmMoveVert(1); break;
+    case "k": kmMoveVert(-1); break;
+    case "0": kmHome(); break;
+    case "$": kmEnd(); break;
+    case "G": kmDocEnd(); break;
+    case "g": vimPending = "g"; break;
+    case "d": vimPending = "d"; break;
+    case "y": vimPending = "y"; break;
+    case "x": kmPushUndo(); kmDeleteChar(); break;
+    case "i": vimState = "insert"; break;
+    case "a": vimState = "insert"; kmMoveHoriz(1); break;
+    case "o": kmPushUndo(); kmOpenLine(false); vimState = "insert"; break;
+    case "O": kmPushUndo(); kmOpenLine(true); vimState = "insert"; break;
+    case "u": kmUndo(); break;
+    case "p": kmPushUndo(); kmPaste(); break;
+    default:
+      if (k.length === 1) { e.preventDefault(); return; }
+      return;
+  }
+  e.preventDefault();
+  kmUpdateInd();
+}
+
+// ── Emacs（C-s 保存由全局快捷键处理，此处不拦截）──
+function emacsKeydown(e) {
+  if (!e.ctrlKey || e.metaKey) return;
+  switch (e.key.toLowerCase()) {
+    case "f": kmMoveHoriz(1); break;
+    case "b": kmMoveHoriz(-1); break;
+    case "p": kmMoveVert(-1); break;
+    case "n": kmMoveVert(1); break; // 部分浏览器 C-n 为系统快捷键，可能拦截失败
+    case "a": kmHome(); break;
+    case "e": kmEnd(); break;
+    case "d": kmPushUndo(); kmDeleteChar(); break;
+    case "k": kmPushUndo(); kmKillLine(); break;
+    case "y": kmPaste(); break;
+    case "z": kmUndo(); break;
+    case "/": kmUndo(); break;   // C-/ 撤销
+    default: return;
+  }
+  e.preventDefault();
+}
+
 editorText.addEventListener("keydown", (e) => {
   if (e.key === "Tab") {
     e.preventDefault();
     const s = editorText.selectionStart, t = editorText.selectionEnd;
     editorText.value = editorText.value.slice(0, s) + "  " + editorText.value.slice(t);
     editorText.selectionStart = editorText.selectionEnd = s + 2;
+    return;
   }
+  if (keyMode === "vim") { vimKeydown(e); return; }
+  if (keyMode === "emacs") { emacsKeydown(e); return; }
 });
 
 document.addEventListener("keydown", (e) => {
@@ -1446,6 +1657,7 @@ function tourRenderCard(step) {
     `<span class="dot ${j === tourIdx ? "active" : ""}"></span>`
   ).join("");
   tourCard.innerHTML = `
+    <div class="tour-arrow"></div>
     <div class="tour-top">
       <span class="step">${tourIdx + 1} / ${total}</span>
       <a id="tourSkip">跳过引导</a>
@@ -1466,6 +1678,23 @@ function tourRenderCard(step) {
 }
 
 function tourPositionCard(rect, side) {
+  // 移动端：卡片固定底部横条，箭头对准高亮水平位置
+  if (window.innerWidth <= 768) {
+    tourCard.style.left = "10px";
+    tourCard.style.right = "10px";
+    tourCard.style.top = "auto";
+    tourCard.style.bottom = "12px";
+    tourCard.style.width = "auto";
+    const arrow = tourCard.querySelector(".tour-arrow");
+    if (arrow) {
+      const cx = rect.left + rect.width / 2;
+      const cardLeft = 10, cardW = window.innerWidth - 20;
+      const pos = Math.max(16, Math.min(cardW - 16, cx - cardLeft));
+      arrow.style.left = pos + "px";
+      arrow.style.transform = "translateX(-50%)";
+    }
+    return;
+  }
   const W = tourCard.offsetWidth;
   const H = tourCard.offsetHeight;
   const pad = 14;
