@@ -1636,10 +1636,14 @@ function tourShowStep(i) {
   if (step.open && editPanel.classList.contains("hidden")) {
     openEditPanel(step.headingText);
   }
-  // 移动端：目录树步骤自动展开抽屉（目录收在悬浮球里，直接高亮不可见）
+  // 移动端：目录树步骤自动展开抽屉（目录收在悬浮球里，直接高亮不可见）；
+  // 离开目录步骤立即收起，避免遮挡后续引导
   if (step.drawer && isMobile()) {
     tocAside.classList.add("show");
     tocBackdrop.classList.add("show");
+  } else {
+    tocAside.classList.remove("show");
+    tocBackdrop.classList.remove("show");
   }
   const el = getTourEl(step);
   if (!el) { tourMaskClick(); return; }

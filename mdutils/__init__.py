@@ -21,4 +21,4 @@ __all__ = [
     "insert_after_heading",
     "update_frontmatter",
 ]
-__version__ = "2.3.1"
+__version__ = "2.3.2"
