@@ -1575,7 +1575,7 @@ function buildTourSteps() {
     { sel: ".status-box", title: "② 文件信息", text: "当前文件名 + 字符 / 行 / 标题统计，一目了然。", side: "bottom" },
     { sel: "#undoBtn", title: "③ 撤销", text: "每次修改自动快照，最多回滚 20 步。", side: "bottom" },
     { sel: "#redoBtn", title: "④ 还原", text: "撤销错了？一键还原（新操作会清空还原历史）。", side: "bottom" },
-    { sel: "#tocList", title: "⑤ 文档结构", text: "引导线 + 级别徽标 + 滚动跟随；悬停行尾出现 ✎ 编辑 / 🗑 删除。", side: "right" },
+    { sel: "#tocList", title: "⑤ 文档结构", text: "引导线 + 级别徽标 + 滚动跟随；悬停行尾出现 ✎ 编辑 / 🗑 删除。", side: "right", drawer: true },
     { sel: "#preview", title: "⑥ 文档预览", text: "渲染后的完整文档：代码高亮、表格、图片全支持。", side: "left" },
   ];
   const firstHeading = previewEl.querySelector("h1, h2");
@@ -1619,6 +1619,8 @@ function endTour() {
   window.removeEventListener("scroll", tourOnScroll, { capture: true });
   window.removeEventListener("resize", tourOnScroll);
   closeEditPanel();
+  tocAside.classList.remove("show");
+  tocBackdrop.classList.remove("show");
   localStorage.setItem("mdutils_app_tour_done", "1");
 }
 
@@ -1633,6 +1635,11 @@ function tourShowStep(i) {
   if (!step) { endTour(); return; }
   if (step.open && editPanel.classList.contains("hidden")) {
     openEditPanel(step.headingText);
+  }
+  // 移动端：目录树步骤自动展开抽屉（目录收在悬浮球里，直接高亮不可见）
+  if (step.drawer && isMobile()) {
+    tocAside.classList.add("show");
+    tocBackdrop.classList.add("show");
   }
   const el = getTourEl(step);
   if (!el) { tourMaskClick(); return; }

@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="mdutils",
-    version="2.3.0",
+    version="2.3.1",
     description="Markdown 文档工具箱 — 为Openclaw Agent提供的Markdown文档处理工具，可便捷强化openclaw对于Markdown文档的处理能力。",
     packages=find_packages(),
     python_requires=">=3.8",
